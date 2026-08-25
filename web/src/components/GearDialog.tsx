@@ -47,36 +47,38 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) { window.clearTimeout(timer.current); setProgress(null); onClose(); } }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30" />
-        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2 p-6 text-sm shadow-overlay">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <Dialog.Title className="text-[15px] font-semibold">Health &amp; scoring</Dialog.Title>
-            <Dialog.Close aria-label="Close" className="icon-btn -mr-2 shrink-0">
-              <X className="size-4" aria-hidden="true" />
-            </Dialog.Close>
+        <Dialog.Overlay className="dialog-scrim fixed inset-0 z-40 bg-ink/30" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2">
+          <div className="panel dialog-panel p-6 text-sm shadow-overlay">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <Dialog.Title className="text-[15px] font-semibold">Health &amp; scoring</Dialog.Title>
+              <Dialog.Close aria-label="Close" className="icon-btn -mr-2 shrink-0">
+                <X className="size-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+            {health && (
+              <table className="w-full">
+                <tbody>
+                  {row("Gemini key", health.key_present ? "present ✓" : <span className="text-red">MISSING (set GEMINI_API_KEY)</span>)}
+                  {row("Batch model", health.batch_model)}
+                  {row("Deep-dive model", health.deep_dive_model)}
+                  {row("Batch scoring", health.batch_scoring ? "on (daily run)" : "off")}
+                  {row("Last watcher run", health.last_run ? `${health.last_run.ts} · ${health.last_run.company} · ${health.last_run.status}` : "—")}
+                  {row("Unscored jobs", String(health.unscored))}
+                </tbody>
+              </table>
+            )}
+            <button
+              onClick={() => void startBackfill()}
+              disabled={!!progress || !health?.key_present}
+              className="mt-4 w-full rounded-md bg-teal py-1.5 font-semibold text-paper transition hover:bg-teal-deep disabled:opacity-50"
+            >
+              {progress ? `Scoring… ${progress.done}/${progress.total}` : `Score all unscored (${health?.unscored ?? 0})`}
+            </button>
+            <p className="mt-2 text-[11px] text-ink-muted">
+              Models are set in the Settings tab, under Advanced.
+            </p>
           </div>
-          {health && (
-            <table className="w-full">
-              <tbody>
-                {row("Gemini key", health.key_present ? "present ✓" : <span className="text-red">MISSING (set GEMINI_API_KEY)</span>)}
-                {row("Batch model", health.batch_model)}
-                {row("Deep-dive model", health.deep_dive_model)}
-                {row("Batch scoring", health.batch_scoring ? "on (daily run)" : "off")}
-                {row("Last watcher run", health.last_run ? `${health.last_run.ts} · ${health.last_run.company} · ${health.last_run.status}` : "—")}
-                {row("Unscored jobs", String(health.unscored))}
-              </tbody>
-            </table>
-          )}
-          <button
-            onClick={() => void startBackfill()}
-            disabled={!!progress || !health?.key_present}
-            className="mt-4 w-full rounded-md bg-teal py-1.5 font-semibold text-paper transition hover:bg-teal-deep disabled:opacity-50"
-          >
-            {progress ? `Scoring… ${progress.done}/${progress.total}` : `Score all unscored (${health?.unscored ?? 0})`}
-          </button>
-          <p className="mt-2 text-[11px] text-ink-muted">
-            Models are set in the Settings tab, under Advanced.
-          </p>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

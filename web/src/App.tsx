@@ -40,7 +40,7 @@ export default function App() {
       </header>
       <main className="min-h-0 grow overflow-auto p-6">
         {tab === "board" && <Board />}
-        {tab === "profile" && <ProfilePage />}
+        {tab === "profile" && <ProfilePage onOpenHealth={() => setGearOpen(true)} />}
         {tab === "settings" && <SettingsPage />}
       </main>
       <GearDialog open={gearOpen} onClose={() => setGearOpen(false)} />
