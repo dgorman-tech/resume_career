@@ -40,6 +40,18 @@ class ProfileBody(BaseModel):
     rules_text: str
 
 
+class DimensionBody(BaseModel):
+    key: Optional[str] = None
+    label: str
+    description: str
+    position: int
+    archived: bool = False
+
+
+class DimensionsPut(BaseModel):
+    dimensions: list[DimensionBody]
+
+
 def ok(data):
     return {"ok": True, "data": data, "error": None}
 
@@ -70,6 +82,20 @@ def _row_to_job(row, internal, profile_updated):
         "stale": bool(scored_at and profile_updated and profile_updated > scored_at),
         "has_deep_dive": bool(d.get("deep_dive_md")),
     }
+
+
+def _dimensions_payload(conn):
+    dims = appdb.load_dimensions(conn, include_archived=True)
+    for d in dims:
+        d["archived"] = bool(d["archived"])
+    prof = conn.execute("SELECT holistic_weight FROM profile WHERE id=1").fetchone()
+    return {"dimensions": dims,
+            "holistic_weight": prof["holistic_weight"] if prof else 50}
+
+
+def _bump_rubric(conn):
+    conn.execute("INSERT OR IGNORE INTO profile(id) VALUES (1)")
+    conn.execute("UPDATE profile SET rubric_updated_at=? WHERE id=1", (appdb.now_iso(),))
 
 
 JOBS_SQL = """
@@ -214,6 +240,67 @@ def create_app(db_path=None, cfg=None, config_path=None):
                 (body.resume_text, body.rules_text, ts))
             conn.commit()
             return ok({"resume_text": body.resume_text, "rules_text": body.rules_text, "updated_at": ts})
+        finally:
+            conn.close()
+
+    @app.get("/api/dimensions")
+    def get_dimensions():
+        conn = get_conn()
+        try:
+            return ok(_dimensions_payload(conn))
+        finally:
+            conn.close()
+
+    @app.put("/api/dimensions")
+    def put_dimensions(body: DimensionsPut):
+        conn = get_conn()
+        try:
+            existing = {d["key"]: d for d in appdb.load_dimensions(conn, include_archived=True)}
+            keyed = [d for d in body.dimensions if d.key is not None]
+            if len({d.key for d in keyed}) != len(keyed):
+                return err("duplicate dimension keys in payload")
+            unknown = [d.key for d in keyed if d.key not in existing]
+            if unknown:
+                return err(f"unknown dimension keys: {', '.join(unknown)}")
+            missing = sorted(set(existing) - {d.key for d in keyed})
+            if missing:
+                return err("payload must include every existing dimension "
+                           f"(missing: {', '.join(missing)}); archive instead of omitting")
+            active = [d for d in body.dimensions if not d.archived]
+            if not 1 <= len(active) <= 8:
+                return err("must have between 1 and 8 active dimensions")
+            labels = [d.label.strip() for d in active]
+            if any(not 1 <= len(l) <= 40 for l in labels):
+                return err("labels must be 1-40 characters")
+            if len({l.lower() for l in labels}) != len(labels):
+                return err("active dimension labels must be unique")
+            if any(not d.description.strip() or len(d.description) > 500 for d in body.dimensions):
+                return err("descriptions must be non-empty and at most 500 characters")
+
+            rubric_changed = False
+            keys = set(existing)
+            for d in body.dimensions:
+                if d.key is None:
+                    key = appdb.slugify_label(d.label.strip(), keys)
+                    keys.add(key)
+                    conn.execute(
+                        """INSERT INTO score_dimensions(key, label, description, weight, position, archived)
+                           VALUES (?,?,?,10,?,?)""",
+                        (key, d.label.strip(), d.description.strip(), d.position, int(d.archived)))
+                    rubric_changed = True
+                else:
+                    old = existing[d.key]
+                    text_changed = (d.label.strip() != old["label"]
+                                    or d.description.strip() != old["description"])
+                    if (text_changed and not d.archived) or bool(old["archived"]) != d.archived:
+                        rubric_changed = True
+                    conn.execute(
+                        "UPDATE score_dimensions SET label=?, description=?, position=?, archived=? WHERE key=?",
+                        (d.label.strip(), d.description.strip(), d.position, int(d.archived), d.key))
+            if rubric_changed:
+                _bump_rubric(conn)
+            conn.commit()
+            return ok(_dimensions_payload(conn))
         finally:
             conn.close()
 
