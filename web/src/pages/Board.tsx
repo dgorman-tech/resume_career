@@ -6,6 +6,7 @@ import { DEFAULT_FILTERS, FilterBar, type Filters } from "../components/FilterBa
 import { JobDrawer } from "../components/JobDrawer";
 import { KeyboardHelp } from "../components/KeyboardHelp";
 import { StatsBar } from "../components/StatsBar";
+import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
 import { getDimensions, scoreJob } from "../lib/api";
@@ -85,7 +86,9 @@ export default function Board() {
       <div className="mb-3">
         <StatsBar />
       </div>
-      <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef} />
+      <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef}
+        tune={<TuneControl tune={tune} setTune={setTune}
+          onError={() => { setTune(null); void qc.invalidateQueries({ queryKey: ["dimensions"] }); }} />} />
       {isError || dimsQuery.isError ? (
         <div className="panel p-10 text-center">
           <p className="text-sm font-semibold">Couldn't load jobs</p>
