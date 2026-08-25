@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-25T00:00:00Z",
+  "title": "Design System: Career HQ",
+  "extensions": {
+    "colorMeta": {
+      "harbor-teal": { "role": "primary", "displayName": "Harbor Teal", "canonical": "oklch(0.52 0.10 190)", "tonalRamp": ["oklch(0.18 0.05 190)", "oklch(0.28 0.07 190)", "oklch(0.38 0.09 190)", "oklch(0.48 0.10 190)", "oklch(0.58 0.10 190)", "oklch(0.70 0.08 190)", "oklch(0.82 0.06 190)", "oklch(0.94 0.03 190)"] },
+      "harbor-teal-deep": { "role": "primary", "displayName": "Harbor Teal Deep", "canonical": "oklch(0.44 0.09 190)", "tonalRamp": ["oklch(0.16 0.05 190)", "oklch(0.24 0.07 190)", "oklch(0.32 0.08 190)", "oklch(0.44 0.09 190)", "oklch(0.56 0.09 190)", "oklch(0.68 0.08 190)", "oklch(0.80 0.06 190)", "oklch(0.92 0.03 190)"] },
+      "teal-wash": { "role": "primary", "displayName": "Teal Wash", "canonical": "oklch(0.93 0.025 185)", "tonalRamp": ["oklch(0.25 0.03 185)", "oklch(0.38 0.03 185)", "oklch(0.50 0.03 185)", "oklch(0.62 0.03 185)", "oklch(0.74 0.03 185)", "oklch(0.84 0.03 185)", "oklch(0.90 0.025 185)", "oklch(0.96 0.02 185)"] },
+      "signal-amber": { "role": "tertiary", "displayName": "Signal Amber", "canonical": "oklch(0.55 0.12 75)", "tonalRamp": ["oklch(0.20 0.06 75)", "oklch(0.30 0.08 75)", "oklch(0.40 0.10 75)", "oklch(0.55 0.12 75)", "oklch(0.65 0.12 75)", "oklch(0.76 0.10 75)", "oklch(0.86 0.07 75)", "oklch(0.94 0.04 75)"] },
+      "signal-red": { "role": "tertiary", "displayName": "Signal Red", "canonical": "oklch(0.48 0.14 25)", "tonalRamp": ["oklch(0.18 0.08 25)", "oklch(0.28 0.11 25)", "oklch(0.38 0.13 25)", "oklch(0.48 0.14 25)", "oklch(0.60 0.13 25)", "oklch(0.72 0.10 25)", "oklch(0.84 0.06 25)", "oklch(0.94 0.03 25)"] },
+      "morning-paper": { "role": "neutral", "displayName": "Morning Paper", "canonical": "oklch(0.975 0.005 190)", "tonalRamp": ["oklch(0.22 0.008 190)", "oklch(0.34 0.008 190)", "oklch(0.46 0.008 190)", "oklch(0.58 0.008 190)", "oklch(0.70 0.007 190)", "oklch(0.82 0.006 190)", "oklch(0.91 0.006 190)", "oklch(0.975 0.005 190)"] },
+      "card-white": { "role": "neutral", "displayName": "Card White", "canonical": "oklch(0.99 0.003 190)", "tonalRamp": ["oklch(0.22 0.008 190)", "oklch(0.34 0.008 190)", "oklch(0.46 0.008 190)", "oklch(0.58 0.008 190)", "oklch(0.70 0.007 190)", "oklch(0.82 0.006 190)", "oklch(0.93 0.004 190)", "oklch(0.99 0.003 190)"] },
+      "sunken-well": { "role": "neutral", "displayName": "Sunken Well", "canonical": "oklch(0.95 0.007 190)", "tonalRamp": ["oklch(0.22 0.008 190)", "oklch(0.34 0.008 190)", "oklch(0.46 0.008 190)", "oklch(0.58 0.008 190)", "oklch(0.70 0.007 190)", "oklch(0.82 0.006 190)", "oklch(0.89 0.007 190)", "oklch(0.95 0.007 190)"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "oklch(0.90 0.008 190)", "tonalRamp": ["oklch(0.22 0.008 190)", "oklch(0.34 0.008 190)", "oklch(0.46 0.008 190)", "oklch(0.58 0.008 190)", "oklch(0.70 0.008 190)", "oklch(0.80 0.008 190)", "oklch(0.90 0.008 190)", "oklch(0.96 0.006 190)"] },
+      "briefing-ink": { "role": "neutral", "displayName": "Briefing Ink", "canonical": "oklch(0.24 0.012 190)", "tonalRamp": ["oklch(0.16 0.012 190)", "oklch(0.24 0.012 190)", "oklch(0.34 0.012 190)", "oklch(0.46 0.010 190)", "oklch(0.58 0.010 190)", "oklch(0.72 0.008 190)", "oklch(0.86 0.006 190)", "oklch(0.95 0.005 190)"] },
+      "ink-muted": { "role": "neutral", "displayName": "Ink Muted", "canonical": "oklch(0.48 0.012 190)", "tonalRamp": ["oklch(0.16 0.012 190)", "oklch(0.26 0.012 190)", "oklch(0.36 0.012 190)", "oklch(0.48 0.012 190)", "oklch(0.60 0.010 190)", "oklch(0.72 0.008 190)", "oklch(0.84 0.006 190)", "oklch(0.94 0.005 190)"] },
+      "ink-faint": { "role": "neutral", "displayName": "Ink Faint", "canonical": "oklch(0.66 0.010 190)", "tonalRamp": ["oklch(0.18 0.010 190)", "oklch(0.28 0.010 190)", "oklch(0.40 0.010 190)", "oklch(0.52 0.010 190)", "oklch(0.66 0.010 190)", "oklch(0.76 0.008 190)", "oklch(0.86 0.006 190)", "oklch(0.95 0.005 190)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles only (Profile, Settings). At most one per screen." },
+      "headline": { "displayName": "Headline", "purpose": "Drawer job titles and dialog titles." },
+      "title": { "displayName": "Title", "purpose": "Row job titles, section headings, emphasized cells." },
+      "body": { "displayName": "Body", "purpose": "Default text; max 70ch measure in prose contexts." },
+      "label": { "displayName": "Label", "purpose": "Tracked-uppercase mono for stat labels, column headers, keyboard hints, status pills." }
+    },
+    "shadows": [
+      { "name": "rest", "value": "0 1px 2px rgba(26,37,35,0.05), 0 2px 8px rgba(26,37,35,0.04)", "purpose": "Table shell, panels, cards at rest." },
+      { "name": "raised", "value": "0 4px 16px rgba(26,37,35,0.08)", "purpose": "Dropdowns, popovers, hovered interactive cards." },
+      { "name": "overlay", "value": "0 16px 48px rgba(26,37,35,0.16)", "purpose": "Drawer and dialogs, over an rgba(26,37,35,0.32) scrim." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "ease-out-quart for all state transitions, 150-250ms; opacity/transform only." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per view.",
+      "html": "<button class=\"ds-btn-primary\">Score now</button>",
+      "css": ".ds-btn-primary { background: #0f766e; color: #f5f8f7; padding: 8px 16px; border: none; border-radius: 6px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: #0b5d57; } .ds-btn-primary:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Default for secondary actions and icon buttons.",
+      "html": "<button class=\"ds-btn-ghost\">Dismiss</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #566361; padding: 8px 12px; border: none; border-radius: 6px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1), color 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-ghost:hover { background: #edf2f1; color: #1a2523; } .ds-btn-ghost:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Filter-bar search field.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search company, title, location…\" />",
+      "css": ".ds-input { background: #fbfdfc; color: #1a2523; border: 1px solid #dce4e2; border-radius: 6px; padding: 8px 12px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; min-width: 260px; transition: border-color 150ms cubic-bezier(0.25,1,0.5,1), box-shadow 150ms cubic-bezier(0.25,1,0.5,1); } .ds-input::placeholder { color: #8b9895; } .ds-input:focus { outline: none; border-color: #0f766e; box-shadow: 0 0 0 3px #e0efec; }"
+    },
+    {
+      "name": "Filter Chips",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Rest and selected filter states, borderless.",
+      "html": "<span class=\"ds-chip\">Tier 2</span> <span class=\"ds-chip ds-chip-selected\">Tier 1</span>",
+      "css": ".ds-chip { display: inline-block; background: #edf2f1; color: #566361; border-radius: 999px; padding: 2px 10px; font-family: Inter, system-ui, sans-serif; font-size: 0.8125rem; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1), color 150ms cubic-bezier(0.25,1,0.5,1); } .ds-chip:hover { color: #1a2523; } .ds-chip-selected { background: #e0efec; color: #0b5d57; font-weight: 600; }"
+    },
+    {
+      "name": "Status Pills",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "The four pipeline states; label always present, Applied is the only filled pill.",
+      "html": "<span class=\"ds-pill ds-pill-new\">NEW</span> <span class=\"ds-pill ds-pill-interested\">INTERESTED</span> <span class=\"ds-pill ds-pill-applied\">APPLIED</span> <span class=\"ds-pill ds-pill-dismissed\">DISMISSED</span>",
+      "css": ".ds-pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; } .ds-pill-new { background: #edf2f1; color: #566361; } .ds-pill-interested { background: #e0efec; color: #0b5d57; } .ds-pill-applied { background: #0f766e; color: #f5f8f7; } .ds-pill-dismissed { background: transparent; color: #8b9895; }"
+    },
+    {
+      "name": "Nav Tabs",
+      "kind": "nav",
+      "refersTo": "nav-tab-active",
+      "description": "Header pill tabs: transparent at rest, Teal Wash when active.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-tab ds-nav-tab-active\">Board</button><button class=\"ds-nav-tab\">Profile</button><button class=\"ds-nav-tab\">Settings</button></nav>",
+      "css": ".ds-nav { display: flex; gap: 4px; } .ds-nav-tab { background: transparent; color: #566361; border: none; border-radius: 999px; padding: 4px 16px; font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: color 150ms cubic-bezier(0.25,1,0.5,1), background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-nav-tab:hover { color: #1a2523; } .ds-nav-tab-active { background: #e0efec; color: #0b5d57; } .ds-nav-tab:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard raised surface: Card White, hairline border, rest shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-label\">MED T1 SALARY</div><div class=\"ds-card-value\">$182,500</div></div>",
+      "css": ".ds-card { background: #fbfdfc; border: 1px solid #dce4e2; border-radius: 10px; padding: 16px; box-shadow: 0 1px 2px rgba(26,37,35,0.05), 0 2px 8px rgba(26,37,35,0.04); max-width: 220px; } .ds-card-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; color: #566361; margin-bottom: 4px; } .ds-card-value { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 1.125rem; font-weight: 700; color: #1a2523; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Score Dial",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Signature conic fit dial: the only gradient in the app, and it is data.",
+      "html": "<span class=\"ds-dial\"><span class=\"ds-dial-inner\">87</span></span>",
+      "css": ".ds-dial { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: conic-gradient(#0f766e 87%, #edf2f1 87% 100%); } .ds-dial-inner { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; background: #fbfdfc; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 9px; font-weight: 700; color: #0f766e; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Morning Briefing",
+    "overview": "Career HQ looks like the day's postings laid out on a well-set desk at 9am: daylight, order, coffee, decisiveness. It is a light-first system built on paper-tinted neutrals (every neutral carries a faint teal cast; nothing is pure white or pure black) with a single deep teal voice that speaks only when something is selected, actionable, or worth interest. Hierarchy is carried by typography and spacing, not by boxes; the job rows are the interface and the chrome recedes to hairlines and soft ambient light.\n\nThis system explicitly rejects its own predecessor: the dark navy-purple gradient background, violet→teal gradient text, glassmorphism cards, and neon accents are gone and banned from returning. It equally rejects the growth-hacker dashboard, the gamified job hunt, enterprise ATS sterility, and the cramped hacker terminal. Serious work, calm surface, honest tone.",
+    "keyCharacteristics": [
+      "Light-first, paper-warm daylight surfaces with teal-tinted neutrals",
+      "One accent (Harbor Teal), spent on ≤10% of any screen",
+      "Soft ambient elevation: gentle diffuse shadows, never harsh, never colored",
+      "Typography-led hierarchy; mono reserved for data and labels",
+      "Refined, restrained controls that whisper until hovered or focused"
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Harbor Teal appears on at most 10% of any screen. Its rarity is what makes selection and action legible. If two teal fills are touching, one of them is wrong.", "section": "colors" },
+      { "name": "The No Pure Rule", "body": "#ffffff and #000000 are forbidden. Every neutral is tinted toward the teal hue (chroma ≈ 0.005 in OKLCH). Screenshots should feel like paper in daylight, not a spec sheet.", "section": "colors" },
+      { "name": "The Semantics-Only Signal Rule", "body": "Amber and red exist for meaning (score bands, errors), never for variety. A screen with no warnings shows no amber.", "section": "colors" },
+      { "name": "The Mono Data Rule", "body": "Numerals in data contexts (salaries, scores, counts, dates in tables) are JetBrains Mono with tabular figures. Prose is never mono; mono is never prose.", "section": "typography" },
+      { "name": "The Two-Weight Rule", "body": "Inter 400 and 600 only (500 permitted in mono). If hierarchy needs more than two weights, fix the size scale instead.", "section": "typography" },
+      { "name": "The Window Light Rule", "body": "If a shadow is noticeable from across the room, it is too dark. Shadows describe air between surfaces, not drama.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Harbor Teal under 10% of any screen (The One Voice Rule).",
+      "Do tint every neutral toward teal; #ffffff and #000000 are forbidden (The No Pure Rule).",
+      "Do draw structure with 1px Hairline borders and the three-step shadow vocabulary; nothing else conveys depth.",
+      "Do set data numerals in JetBrains Mono with tabular figures, and labels in tracked uppercase mono at 11px.",
+      "Do show a visible :focus-visible ring on every interactive element and keep every action reachable from the keyboard (WCAG 2.1 AA, 4.5:1 text contrast).",
+      "Do pair every color-coded state with a text label or numeral; color never carries meaning alone."
+    ],
+    "donts": [
+      "Don't reintroduce the old skin: dark navy-purple gradient backgrounds, violet→teal gradient text, glassmorphism cards, neon accents on dark. No backdrop-filter, no background-clip: text, no gradient backgrounds anywhere. The only gradient in the app is the Score Dial's conic data fill.",
+      "Don't build the growth-hacker dashboard: no KPI hero cards, no big-number-tiny-label stat tiles, no decorative sparklines. Stats stay one quiet mono line.",
+      "Don't gamify: no streaks, badges, confetti, or encouragement toasts. Toasts state facts: \"Scored\", not \"Nice work!\".",
+      "Don't drift into enterprise ATS sterile gray-on-gray: neutrals are tinted, spacing is generous, and type has real hierarchy.",
+      "Don't go cramped hacker terminal: mono is for labels and data only, never body text; whitespace is a feature.",
+      "Don't use side-stripe borders (border-left > 1px as accent), identical icon-heading-text card grids, or reach for a modal when inline or a drawer works. The drawer is the default detail surface.",
+      "Don't animate layout properties; motion is opacity/transform only, 150-250ms ease-out, and disappears entirely under prefers-reduced-motion."
+    ]
+  }
+}
