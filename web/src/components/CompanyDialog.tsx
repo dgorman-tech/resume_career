@@ -97,7 +97,7 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-scrim fixed inset-0 z-40 bg-ink/30" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[26rem] -translate-x-1/2 -translate-y-1/2">
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[30rem] -translate-x-1/2 -translate-y-1/2">
           <div className="panel dialog-panel max-h-[85vh] overflow-auto p-6 text-sm shadow-overlay">
             <div className="mb-3 flex items-center justify-between gap-4">
               <Dialog.Title className="text-[15px] font-semibold">
@@ -107,18 +107,26 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
                 <X className="size-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
+            {/* A form, so Enter in any field saves. Adding a company is a dozen
+                keystrokes; it should not end with a hunt for the button. */}
+            <form onSubmit={(e) => { e.preventDefault(); if (built) onSave(built); }}>
             <div className="space-y-3">
               {field("Name", name, setName)}
-              <div className="flex gap-3">
+              <div className="flex items-end gap-3">
                 <label className="block grow text-xs font-semibold text-ink-muted">
                   Adapter
+                  {initial && (
+                    <span className="block font-normal text-[11px]">
+                      fixed once saved; delete and re-add to change it
+                    </span>
+                  )}
                   <select aria-label="Adapter" value={adapter} disabled={!!initial}
                     onChange={(e) => { setAdapter(e.target.value as AdapterName); setTest({ kind: "idle" }); }}
-                    className={input}>
+                    className={`${input} disabled:bg-sunken disabled:text-ink-muted`}>
                     {ADAPTERS.map((a) => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </label>
-                <label className="block w-20 text-xs font-semibold text-ink-muted">
+                <label className="block w-20 shrink-0 text-xs font-semibold text-ink-muted">
                   Tier
                   <select aria-label="Tier" value={tier} onChange={(e) => setTier(e.target.value)} className={input}>
                     {["1", "2", "3"].map((t) => <option key={t} value={t}>{t}</option>)}
@@ -157,16 +165,20 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
               <p className="mt-3 rounded-md bg-sunken p-2 text-xs text-red">{test.error}</p>
             )}
             <div className="mt-4 flex items-center gap-2">
-              <button onClick={() => void runTest()} disabled={!built || test.kind === "loading"}
+              <button type="button" onClick={() => void runTest()} disabled={!built || test.kind === "loading"}
                 className="rounded-md border border-hairline px-4 py-1.5 text-sm text-ink transition hover:bg-sunken disabled:opacity-50">
                 {test.kind === "loading" ? "Testing…" : "Test fetch"}
               </button>
               <div className="grow" />
-              <button onClick={() => built && onSave(built)} disabled={!built}
+              <button type="submit" disabled={!built}
                 className="rounded-md bg-teal px-5 py-1.5 text-sm font-semibold text-paper transition hover:bg-teal-deep disabled:opacity-50">
                 Save company
               </button>
             </div>
+            </form>
+            <p className="mt-3 text-[11px] text-ink-muted">
+              Saved into the pending config. The Save settings button writes it to disk.
+            </p>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
