@@ -55,6 +55,24 @@ describe("RubricEditor", () => {
       expect.objectContaining({ key: null, label: "Culture", description: "signals", archived: false }));
   });
 
+  it("archiving a never-saved new dimension discards it entirely", async () => {
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: /add dimension/i }));
+    fireEvent.change(screen.getByLabelText("New dimension name"), { target: { value: "Culture" } });
+    fireEvent.change(screen.getByLabelText("New dimension description"), { target: { value: "signals" } });
+    const archiveButtons = screen.getAllByRole("button", { name: /archive/i });
+    fireEvent.click(archiveButtons[archiveButtons.length - 1]);
+    expect(screen.queryByDisplayValue("Culture")).toBeNull();
+    expect(screen.queryByText("Culture")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /save rubric/i }));
+    await waitFor(() => expect(api.putDimensions).toHaveBeenCalled());
+    const sent = vi.mocked(api.putDimensions).mock.calls[0][0];
+    expect(sent).toEqual([
+      expect.objectContaining({ key: "comp" }),
+      expect.objectContaining({ key: "flex" }),
+    ]);
+  });
+
   it("archive removes the card and keeps it in the save payload", async () => {
     setup();
     fireEvent.click((await screen.findAllByRole("button", { name: /archive/i }))[0]);

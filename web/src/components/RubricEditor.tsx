@@ -29,6 +29,10 @@ export function RubricEditor() {
   };
   const add = () =>
     setDims([...dims, { key: null, label: "", description: "", position: dims.length + 1, archived: false }]);
+  const archive = (i: number) =>
+    dims[i].key === null
+      ? setDims(dims.filter((_, x) => x !== i))
+      : edit(i, { archived: true });
 
   const save = async () => {
     setSaving(true);
@@ -71,7 +75,7 @@ export function RubricEditor() {
                 aria-label={`Move ${d.label || "dimension"} down`} className="icon-btn disabled:opacity-40">
                 <ArrowDown className="size-4" aria-hidden="true" />
               </button>
-              <button onClick={() => edit(idx(d), { archived: true })}
+              <button onClick={() => archive(idx(d))}
                 className="rounded-md border border-hairline px-2 py-1 text-xs text-ink-muted transition hover:text-ink">
                 Archive
               </button>

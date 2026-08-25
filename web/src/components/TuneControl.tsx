@@ -1,4 +1,5 @@
 import * as Popover from "@radix-ui/react-popover";
+import { useQueryClient } from "@tanstack/react-query";
 import { SlidersHorizontal } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ export function TuneControl({ tune, setTune, onError }: {
   setTune: (t: DimensionsPayload) => void;
   onError: () => void;
 }) {
+  const qc = useQueryClient();
   const timer = useRef<number | undefined>(undefined);
   if (!tune) return null;
   const active = tune.dimensions.filter((d) => !d.archived);
@@ -23,7 +25,9 @@ export function TuneControl({ tune, setTune, onError }: {
     timer.current = window.setTimeout(() => {
       const weights = Object.fromEntries(
         next.dimensions.filter((d) => !d.archived).map((d) => [d.key, d.weight]));
-      putWeights(weights, next.holistic_weight).catch((e) => {
+      putWeights(weights, next.holistic_weight).then((response) => {
+        qc.setQueryData(["dimensions"], response);
+      }).catch((e) => {
         toast.error(`Saving weights failed: ${(e as Error).message}`);
         onError();
       });

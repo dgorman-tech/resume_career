@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DimensionsPayload } from "../lib/types";
@@ -16,12 +17,21 @@ const PAYLOAD: DimensionsPayload = {
 };
 
 describe("TuneControl", () => {
-  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+  let qc: QueryClient;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
   afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
-  function setup(setTune = vi.fn()) {
-    vi.mocked(api.putWeights).mockResolvedValue(PAYLOAD);
-    render(<TuneControl tune={PAYLOAD} setTune={setTune} onError={vi.fn()} />);
+  function setup(setTune = vi.fn(), resolved: DimensionsPayload = PAYLOAD) {
+    vi.mocked(api.putWeights).mockResolvedValue(resolved);
+    render(
+      <QueryClientProvider client={qc}>
+        <TuneControl tune={PAYLOAD} setTune={setTune} onError={vi.fn()} />
+      </QueryClientProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: /tune/i }));
     return setTune;
   }
@@ -52,6 +62,21 @@ describe("TuneControl", () => {
     expect(setTune).toHaveBeenCalledWith(expect.objectContaining({ holistic_weight: 50 }));
     vi.advanceTimersByTime(600);
     await waitFor(() => expect(api.putWeights).toHaveBeenCalledWith({ comp: 10 }, 50));
+  });
+
+  it("writes the saved payload into the dimensions query cache on success", async () => {
+    const saved: DimensionsPayload = {
+      holistic_weight: 50,
+      dimensions: [
+        { key: "comp", label: "Compensation", description: "d", weight: 40, position: 1, archived: false },
+        { key: "old", label: "Old", description: "d", weight: 10, position: 2, archived: true },
+      ],
+    };
+    setup(vi.fn(), saved);
+    fireEvent.change(screen.getByRole("slider", { name: "Compensation" }), { target: { value: "40" } });
+    vi.advanceTimersByTime(600);
+    await waitFor(() => expect(api.putWeights).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(qc.getQueryData(["dimensions"])).toEqual(saved));
   });
 
   it("closes on Escape", async () => {
