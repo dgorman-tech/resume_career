@@ -6,16 +6,16 @@ import { ScoreDial } from "./ScoreDial";
 import { StatusPill } from "./StatusPill";
 
 export interface Sort {
-  col: "fit" | "tier" | "company" | "salary" | "posted" | "first_seen";
+  col: "score" | "tier" | "company" | "salary" | "posted" | "first_seen";
   dir: "asc" | "desc";
 }
 
-export const DEFAULT_SORT: Sort = { col: "fit", dir: "desc" };
+export const DEFAULT_SORT: Sort = { col: "score", dir: "desc" };
 
-export function sortJobs(jobs: Job[], sort: Sort): Job[] {
+export function sortJobs(jobs: Job[], sort: Sort, scores: Map<string, number | null>): Job[] {
   const val = (j: Job): number | string => {
     switch (sort.col) {
-      case "fit": return j.fit ?? -1;
+      case "score": return scores.get(j.key) ?? -1;
       case "tier": return j.tier;
       case "company": return j.company.toLowerCase();
       case "salary": return j.salary_max ?? j.salary_min ?? -1;
@@ -32,18 +32,19 @@ export function sortJobs(jobs: Job[], sort: Sort): Job[] {
 }
 
 const COLS: Array<[Sort["col"] | null, string, string]> = [
-  ["fit", "FIT", "w-12"], ["tier", "TIER", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
+  ["score", "SCORE", "w-12"], ["tier", "TIER", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
   [null, "TITLE", ""], [null, "LOCATION", "w-44"], ["salary", "SALARY", "w-28"],
   ["posted", "POSTED", "w-20"], [null, "STATUS", "w-28"],
 ];
 
-export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatus }: {
+export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatus, scores }: {
   jobs: Job[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
   sort: Sort;
   setSort: (s: Sort) => void;
   onStatus: (key: string, status: Status) => void;
+  scores: Map<string, number | null>;
 }) {
   const header = (col: Sort["col"] | null, label: string, w: string) => {
     const active = col != null && col === sort.col;
@@ -86,7 +87,7 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
                 j.status === "dismissed" && "[&>td]:text-ink-muted [&>td]:font-normal",
               )}
             >
-              <td className="px-2"><ScoreDial value={j.fit} /></td>
+              <td className="px-2"><ScoreDial value={scores.get(j.key) ?? null} /></td>
               <td className="overflow-hidden px-2"><Badges job={j} /></td>
               <td className="truncate px-2 font-semibold">{j.company}</td>
               <td className="truncate px-2 text-ink">{j.title}</td>
