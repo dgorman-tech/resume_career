@@ -68,6 +68,17 @@ def test_get_settings_never_exposes_pacing_or_paths(client):
     assert "port" not in data["app"]
 
 
+def test_jobs_endpoint_falls_back_to_example_when_config_missing(tmp_db, tmp_path):
+    # first-ever launch: no watcher/config.json yet, cfg=None (no in-memory override
+    # like other test fixtures use) — every route must survive on the example config,
+    # not just /api/settings, or a friend's first click on the Board tab 500s
+    db_file = tmp_db.execute("PRAGMA database_list").fetchone()[2]
+    app = create_app(db_path=db_file, config_path=tmp_path / "does-not-exist.json")
+    resp = TestClient(app, base_url="http://127.0.0.1").get("/api/jobs")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+
 def test_get_settings_falls_back_to_example_when_config_missing(tmp_db, tmp_path):
     db_file = tmp_db.execute("PRAGMA database_list").fetchone()[2]
     app = create_app(db_path=db_file, cfg=FULL_CFG,

@@ -40,10 +40,6 @@ class ProfileBody(BaseModel):
     rules_text: str
 
 
-def load_cfg():
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-
-
 def ok(data):
     return {"ok": True, "data": data, "error": None}
 
@@ -102,7 +98,10 @@ def create_app(db_path=None, cfg=None, config_path=None):
     app.state.config_path = Path(config_path) if config_path else CONFIG_PATH
 
     def get_cfg():
-        return app.state.cfg if app.state.cfg is not None else load_cfg()
+        if app.state.cfg is not None:
+            return app.state.cfg
+        from app.settings import read_base_cfg
+        return read_base_cfg(app.state.config_path)
 
     def get_conn():
         conn = appdb.get_conn(app.state.db_path)

@@ -22,7 +22,7 @@ A personal job-search tooling project: a local job-posting watcher that's growin
 - `filters`: title keywords, seniority, location include/exclude
 - ntfy topic and request pacing
 
-No scrubbed config template is checked in yet — see `watcher/README.md` for the schema when recreating one from scratch.
+A scrubbed template, `watcher/config.example.json`, is checked in for anyone bootstrapping a fresh copy — see [SETUP.md](SETUP.md). Companies and filters can also be edited from the app's Settings tab instead of by hand.
 
 ## Build roadmap (in order)
 
