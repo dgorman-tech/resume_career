@@ -4,14 +4,14 @@ import { ChevronDown } from "lucide-react";
 import type { Status } from "../lib/types";
 
 const PILL_LABELS: Record<Status, string> = {
-  new: "NEW",
+  new: "UNREVIEWED",
   interested: "INTERESTED",
   dismissed: "DISMISSED",
   applied: "APPLIED",
 };
 
 const MENU_LABELS: Record<Status, string> = {
-  new: "New",
+  new: "Unreviewed",
   interested: "Interested",
   dismissed: "Dismissed",
   applied: "Applied",
@@ -20,7 +20,7 @@ const MENU_LABELS: Record<Status, string> = {
 const STYLES: Record<Status, string> = {
   new: "bg-sunken text-ink-muted hover:text-ink",
   interested: "bg-teal-wash text-teal-deep",
-  dismissed: "text-ink-muted hover:text-ink",
+  dismissed: "border border-hairline text-ink-muted hover:text-ink",
   applied: "bg-teal text-paper",
 };
 

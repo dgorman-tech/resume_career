@@ -32,8 +32,8 @@ export function sortJobs(jobs: Job[], sort: Sort, scores: Map<string, number | n
 }
 
 const COLS: Array<[Sort["col"] | null, string, string]> = [
-  ["score", "SCORE", "w-12"], ["tier", "TIER", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
-  [null, "TITLE", ""], [null, "LOCATION", "w-44"], ["salary", "SALARY", "w-28"],
+  ["score", "SCORE", "w-12"], ["tier", "TIER", "w-24"], ["company", "COMPANY", "w-36"],
+  [null, "TITLE", "w-96"], [null, "LOCATION", "w-44"], ["salary", "SALARY", "w-28"],
   ["posted", "POSTED", "w-20"], [null, "STATUS", "w-28"],
 ];
 
