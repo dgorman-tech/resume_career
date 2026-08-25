@@ -4,7 +4,7 @@ from app import jd_fetch
 
 CFG = {"companies": [
     {"name": "Wealthsimple", "adapter": "ashby", "slug": "wealthsimple", "tier": 1},
-    {"name": "Scotiabank", "adapter": "successfactors_rmk", "host": "jobs.scotiabank.com", "tier": 2},
+    {"name": "ExampleBank", "adapter": "successfactors_rmk", "host": "jobs.examplebank.com", "tier": 2},
 ]}
 
 

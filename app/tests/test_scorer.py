@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from app import scorer
 
-CFG = {"app": {"internal_companies": ["Scotiabank"], "batch_model": "test-flash"},
+CFG = {"app": {"internal_companies": ["ExampleBank"], "batch_model": "test-flash"},
        "companies": []}
 
 GOOD = json.dumps({"fit": 92,
@@ -21,8 +21,8 @@ def _seed_profile(conn, rules_text="RULES TEXT"):
 
 
 def test_pick_lens():
-    assert scorer.pick_lens("Scotiabank", CFG) == "internal"
-    assert scorer.pick_lens("scotiabank", CFG) == "internal"
+    assert scorer.pick_lens("ExampleBank", CFG) == "internal"
+    assert scorer.pick_lens("examplebank", CFG) == "internal"
     assert scorer.pick_lens("Wealthsimple", CFG) == "external"
 
 

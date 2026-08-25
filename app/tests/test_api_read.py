@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.app import create_app
 
-CFG = {"app": {"internal_companies": ["Scotiabank"], "batch_model": "m-flash",
+CFG = {"app": {"internal_companies": ["ExampleBank"], "batch_model": "m-flash",
                "deep_dive_model": "m-pro", "batch_scoring": True},
        "companies": []}
 

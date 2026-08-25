@@ -5,7 +5,7 @@ import pytest
 import watcher as w
 
 
-CFG = {"app": {"internal_companies": ["Scotiabank"]}, "companies": []}
+CFG = {"app": {"internal_companies": ["ExampleBank"]}, "companies": []}
 
 
 def test_run_scoring_step_scores_new_and_unscored(tmp_db, monkeypatch):

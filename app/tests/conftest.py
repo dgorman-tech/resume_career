@@ -23,7 +23,7 @@ SEED_JOBS = [
     ("k1", "Wealthsimple", 1, "ashby", "j1", "Manager, Analytics Engineering",
      "Toronto; Remote", "https://example.com/1", 156000, 195000, "", "2026-08-22",
      "2026-08-24T12:00:00Z", "2026-08-24T12:00:00Z", None, 1),
-    ("k2", "Scotiabank", 2, "successfactors_rmk", "601199917",
+    ("k2", "ExampleBank", 2, "successfactors_rmk", "601199917",
      "Senior Manager, Technology Risk and Control Self-Assessment",
      "Toronto, ON, CA, M5H 1H1", "https://example.com/2", None, None, "", "2026-08-24",
      "2026-08-24T12:00:00Z", "2026-08-24T12:00:00Z", None, 1),

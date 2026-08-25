@@ -3,10 +3,10 @@ from unittest.mock import MagicMock
 
 import watcher as w
 
-FIXTURE = (Path(__file__).parent / "fixtures" / "scotiabank-rss.xml").read_text(encoding="utf-8")
+FIXTURE = (Path(__file__).parent / "fixtures" / "examplebank-rss.xml").read_text(encoding="utf-8")
 
-COMPANY = {"name": "Scotiabank", "adapter": "successfactors_rmk",
-           "host": "jobs.scotiabank.com", "feeds": ["(risk)"], "location": "Toronto", "tier": 2}
+COMPANY = {"name": "ExampleBank", "adapter": "successfactors_rmk",
+           "host": "jobs.examplebank.com", "feeds": ["(risk)"], "location": "Toronto", "tier": 2}
 CFG = {"delay_between_requests_seconds": 0}
 
 
@@ -31,7 +31,7 @@ def test_url_stripped_of_tracking_params():
     jobs = w.fetch_successfactors_rmk(_session_returning(FIXTURE), CFG, COMPANY)
     for j in jobs:
         assert "utm_" not in j["url"] and "?" not in j["url"]
-        assert j["url"].startswith("https://jobs.scotiabank.com/job/")
+        assert j["url"].startswith("https://jobs.examplebank.com/job/")
 
 
 def test_jd_text_captured_and_stripped():
@@ -50,7 +50,7 @@ def test_dedup_across_feeds():
 
 def test_empty_feed():
     empty_rss = """<?xml version="1.0" encoding="UTF-8"?><rss version='2.0'>
-    <channel><title>Empty Feed</title><link>https://jobs.scotiabank.com</link>
+    <channel><title>Empty Feed</title><link>https://jobs.examplebank.com</link>
     <description>Test</description></channel></rss>"""
     jobs = w.fetch_successfactors_rmk(_session_returning(empty_rss), CFG, COMPANY)
     assert len(jobs) == 0
