@@ -52,3 +52,8 @@ This repo is public. Personal/sensitive material stays local-only and is never c
 - `docs/superpowers/`, `.superpowers/`, `scripts/seed_profile.py`, `node_modules/`, `web/dist/` — personal specs/mockups/seeder and build artifacts
 
 Only the code, `watcher/README.md`, and this file are meant to be public.
+
+Before pushing, run `python scripts/privacy_scan.py` — checks tracked files against
+`scripts/privacy_patterns.json` (generic secrets/paths/emails) plus your own
+`scripts/privacy_patterns.local.json` (gitignored; copy from the `.example` file to add your
+name/employer/etc.). Exits non-zero on any high-severity match.

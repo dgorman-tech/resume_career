@@ -53,8 +53,8 @@ for what postings exist.
 ## One manual step: phone notifications (optional, 3 minutes)
 
 1. Install the **ntfy** app (Android/iOS) or use https://ntfy.sh in a browser.
-2. Subscribe to a private, unguessable topic — e.g. `dg-watch-k4x9q2v7` (treat the name like a password; anyone who knows it can read the messages — they only ever contain public job titles).
-3. Put that topic in `config.json` → `"ntfy_topic": "dg-watch-k4x9q2v7"`.
+2. Subscribe to a private, unguessable topic — e.g. `myname-watch-k4x9q2v7` (treat the name like a password; anyone who knows it can read the messages — they only ever contain public job titles).
+3. Put that topic in `config.json` → `"ntfy_topic": "myname-watch-k4x9q2v7"`.
 
 Until then, the daily digest files and Monday brief still work — you just won't get pushes.
 
@@ -63,8 +63,7 @@ Until then, the daily digest files and Monday brief still work — you just won'
 - **Add a company:** new entry under `companies` with `adapter` = `ashby`/`lever`/`workable` and its `slug` (find it in the careers-page URL: `jobs.ashbyhq.com/{slug}`, `jobs.lever.co/{slug}`), or `workday` with `tenant`/`wd`/`site`.
 - **Too much noise / too quiet:** edit `filters.title_domain`, `title_seniority` (a title must hit one of each), `title_exclude`, and the location lists.
 - **Run manually anytime:**
-  `python C:\Users\Danie\Projects\resume_career\watcher\watcher.py`
-  (`--dry-run` polls and prints without saving.)
+  `python watcher/watcher.py` (from the repo root; add `--dry-run` to poll and print without saving)
 
 ## Etiquette built in
 

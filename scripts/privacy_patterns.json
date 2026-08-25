@@ -1,0 +1,12 @@
+{
+  "patterns": [
+    {"label": "windows_home_path", "pattern": "C:\\\\Users\\\\[A-Za-z0-9_.-]+", "severity": "high"},
+    {"label": "unix_home_path", "pattern": "/(?:home|Users)/[A-Za-z0-9_.-]+", "severity": "high"},
+    {"label": "email_address", "pattern": "[A-Za-z0-9._%+-]+@(?!example\\.(com|org)|test\\.(com|org)|localhost)[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", "severity": "high"},
+    {"label": "github_token", "pattern": "gh[pousr]_[A-Za-z0-9]{30,}", "severity": "high"},
+    {"label": "google_api_key", "pattern": "AIza[0-9A-Za-z_-]{35}", "severity": "high"},
+    {"label": "aws_access_key", "pattern": "AKIA[0-9A-Z]{16}", "severity": "high"},
+    {"label": "openai_key", "pattern": "sk-[A-Za-z0-9]{20,}", "severity": "high"},
+    {"label": "generic_bearer_token", "pattern": "(?:api[_-]?key|token|secret)[\"']?\\s*[:=]\\s*[\"'][A-Za-z0-9_\\-]{16,}[\"']", "severity": "high"}
+  ]
+}

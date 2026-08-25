@@ -3,6 +3,8 @@ watcher/config.json
 
 # Generated data — job listings, salary data, personal digests
 watcher/watcher.db
+watcher/watcher.db-shm
+watcher/watcher.db-wal
 watcher/watcher.log
 watcher/digests/
 watcher/job-board.html
@@ -29,7 +31,9 @@ Job Search Strategy.md
 LinkedIn Refresh.md
 Target Rankings.md
 Tooling Roadmap.md
-Daniel Gorman Resume.docx
-Daniel Gorman Resume - Updated.docx
-Daniel Gorman Resume - Updated.pdf
+*Resume*.docx
+*Resume*.pdf
 scripts/seed_profile.py
+
+# Privacy scan — your own name/company terms (see scripts/privacy_patterns.local.json.example)
+scripts/privacy_patterns.local.json

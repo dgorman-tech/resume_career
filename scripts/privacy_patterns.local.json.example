@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy this file to privacy_patterns.local.json (gitignored) and fill in your own name, employer, and any other terms you don't want to leak into a public repo. Run: python scripts/privacy_scan.py",
+  "patterns": [
+    {"label": "your_full_name", "pattern": "Jane\\s+Doe", "severity": "high"},
+    {"label": "your_last_name", "pattern": "\\bDoe\\b", "severity": "medium"},
+    {"label": "your_employer", "pattern": "Acme\\s+Corp", "severity": "medium"},
+    {"label": "your_notification_topic_prefix", "pattern": "jane-watch-", "severity": "medium"}
+  ]
+}
