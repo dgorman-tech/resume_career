@@ -4,54 +4,44 @@ import json
 import os
 
 from app import jd_fetch
-from app.db import now_iso
+from app.db import load_dimensions, now_iso
 
 
 class ScorerError(Exception):
     pass
 
 
-BATCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "fit": {"type": "integer"},
-        "subscores": {
-            "type": "object",
-            "properties": {
-                "comp": {"type": "integer"}, "player_coach": {"type": "integer"},
-                "cost_center": {"type": "integer"}, "flex": {"type": "integer"},
-                "level": {"type": "integer"},
+_EXTERNAL_PREAMBLE = """You are scoring an EXTERNAL job posting for this candidate. Score 0-100 overall (fit)
+and per dimension (subscores):"""
+
+_INTERNAL_PREAMBLE = """You are scoring an INTERNAL mobility posting at the candidate's current employer.
+Ignore external comp floors; weigh step-up in level/scope, promotion path, and the leverage value
+for an external negotiation (note leverage in "angle"). Score 0-100 overall (fit) and per
+dimension (subscores), reading each dimension through this internal lens:"""
+
+_CLOSING = "fit is your holistic judgment, not an average. Be blunt."
+
+
+def build_rubric(dimensions, lens):
+    preamble = _INTERNAL_PREAMBLE if lens == "internal" else _EXTERNAL_PREAMBLE
+    bullets = "\n".join(f"- {d['key']}: {d['description']}" for d in dimensions)
+    return f"{preamble}\n{bullets}\n{_CLOSING}"
+
+
+def build_batch_schema(keys):
+    return {
+        "type": "object",
+        "properties": {
+            "fit": {"type": "integer"},
+            "subscores": {
+                "type": "object",
+                "properties": {k: {"type": "integer"} for k in keys},
+                "required": list(keys),
             },
-            "required": ["comp", "player_coach", "cost_center", "flex", "level"],
+            "why": {"type": "string"}, "gaps": {"type": "string"}, "angle": {"type": "string"},
         },
-        "why": {"type": "string"}, "gaps": {"type": "string"}, "angle": {"type": "string"},
-    },
-    "required": ["fit", "subscores", "why", "gaps", "angle"],
-}
-
-_EXTERNAL_RUBRIC = """You are scoring an EXTERNAL job posting for this candidate. Score 0-100 overall (fit)
-and per dimension (subscores):
-- comp: posted/likely compensation vs the comp criteria (floor and goal) described in CANDIDATE
-  RULES below. If no range is posted, infer cautiously from title/company/market and say so in "why".
-- player_coach: small team leadership WITH hands-on technical work (SQL/Python/BI). Pure
-  people-management or pure IC scores low.
-- cost_center: is the data/analytics work the PRODUCT (or a direct revenue driver) at this
-  company, or internal overhead? Product = high.
-- flex: trust-based flexibility (hybrid <=2 days office, or remote). Rigid full-time RTO = near 0.
-- level: seniority and scope appropriate to the candidate's current level, as described in
-  CANDIDATE RULES.
-fit is your holistic judgment, not an average. Be blunt."""
-
-_INTERNAL_RUBRIC = """You are scoring an INTERNAL mobility posting at the candidate's current employer
-(internal lens). IGNORE the external comp floor. Score 0-100 overall (fit) and per dimension:
-- comp: step-up potential vs the candidate's current banding, as described in CANDIDATE RULES
-  (a clear step up in level/comp = high).
-- player_coach: same definition as ever - small team + hands-on.
-- cost_center: closeness to revenue/product vs pure overhead within the company.
-- flex: flexibility signals of the team/role.
-- level: promotion-level scope or a clear promotion path relative to the candidate's current
-  level (see CANDIDATE RULES); lateral moves score mid unless the team/skills are exceptional.
-  Weigh leverage value for an external negotiation in "angle"."""
+        "required": ["fit", "subscores", "why", "gaps", "angle"],
+    }
 
 
 def pick_lens(company, cfg):
@@ -66,8 +56,8 @@ def load_profile(conn):
     return row
 
 
-def build_batch_prompt(profile, job, jd_text, lens):
-    rubric = _INTERNAL_RUBRIC if lens == "internal" else _EXTERNAL_RUBRIC
+def build_batch_prompt(profile, job, jd_text, lens, dimensions):
+    rubric = build_rubric(dimensions, lens)
     salary = ""
     if job.get("salary_min") or job.get("salary_max"):
         salary = f"Posted salary: {job.get('salary_min')} - {job.get('salary_max')} CAD\n"
@@ -109,7 +99,7 @@ def _clamp(v):
         raise ScorerError(f"non-integer score value: {v!r}")
 
 
-def _validate(raw):
+def _validate(raw, keys):
     try:
         d = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -119,8 +109,7 @@ def _validate(raw):
         raise ScorerError("score JSON missing required keys")
     d["fit"] = _clamp(d["fit"])
     subs = d["subscores"]
-    for k in ("comp", "player_coach", "cost_center", "flex", "level"):
-        subs[k] = _clamp(subs.get(k))
+    d["subscores"] = {k: _clamp(subs.get(k)) for k in keys}
     for k in ("why", "gaps", "angle"):
         d[k] = str(d.get(k, ""))[:600]
     return d
@@ -136,8 +125,13 @@ def score_job(conn, session, cfg, key, inline_jd=None):
     job = dict(job_row)
     jd_text = jd_fetch.get_jd(conn, session, cfg, key, inline_jd=inline_jd)
     lens = pick_lens(job["company"], cfg)
+    dims = load_dimensions(conn)
+    keys = [x["key"] for x in dims]
     model = cfg.get("app", {}).get("batch_model", "gemini-flash-latest")
-    d = _validate(_call_llm(cfg, model, build_batch_prompt(profile, job, jd_text, lens), BATCH_SCHEMA))
+    d = _validate(
+        _call_llm(cfg, model, build_batch_prompt(profile, job, jd_text, lens, dims),
+                  build_batch_schema(keys)),
+        keys)
     conn.execute(
         """INSERT INTO job_scores(key, fit, subscores, why, gaps, angle, lens, model, scored_at)
            VALUES (?,?,?,?,?,?,?,?,?)
@@ -163,8 +157,8 @@ For internal-lens jobs, comp analysis is about level/step-up and leverage for ex
 Be specific and blunt; no filler; cite concrete resume lines when arguing fit."""
 
 
-def build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, salary_evidence):
-    rubric = _INTERNAL_RUBRIC if lens == "internal" else _EXTERNAL_RUBRIC
+def build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, salary_evidence, dimensions):
+    rubric = build_rubric(dimensions, lens)
     prior = json.dumps(batch_score) if batch_score else "(not yet batch-scored)"
     evidence = "\n".join(
         f"- {e['title']}: {e['salary_min']}-{e['salary_max']}" for e in salary_evidence) or "(none)"
@@ -205,6 +199,7 @@ def deep_dive_stream(conn, session, cfg, key):
     job = dict(job_row)
     jd_text = jd_fetch.get_jd(conn, session, cfg, key)
     lens = pick_lens(job["company"], cfg)
+    dims = load_dimensions(conn)
     score_row = conn.execute("SELECT fit, subscores, why, gaps, angle FROM job_scores WHERE key=?", (key,)).fetchone()
     batch_score = dict(score_row) if score_row and score_row["fit"] is not None else None
     evidence = [dict(r) for r in conn.execute(
@@ -213,7 +208,7 @@ def deep_dive_stream(conn, session, cfg, key):
              AND (company=? OR tier=?) AND key != ? LIMIT 12""",
         (job["company"], job["tier"], key)).fetchall()]
     model = cfg.get("app", {}).get("deep_dive_model", "gemini-pro-latest")
-    prompt = build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, evidence)
+    prompt = build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, evidence, dims)
     parts = []
     for chunk in _stream_llm(cfg, model, prompt):
         parts.append(chunk)
