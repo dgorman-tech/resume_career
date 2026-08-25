@@ -175,7 +175,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
         finally:
             conn.close()
 
-    @app.patch("/api/jobs/{key}")
+    @app.patch("/api/jobs/{key:path}")
     def patch_job(key: str, body: JobStatePatch):
         if body.status is not None and body.status not in VALID_STATUSES:
             return err(f"invalid status {body.status!r}", 400)
@@ -240,7 +240,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
         finally:
             conn.close()
 
-    @app.post("/api/jobs/{key}/score")
+    @app.post("/api/jobs/{key:path}/score")
     def score_now(key: str):
         conn = get_conn()
         try:
@@ -251,7 +251,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
         finally:
             conn.close()
 
-    @app.post("/api/jobs/{key}/deep-dive")
+    @app.post("/api/jobs/{key:path}/deep-dive")
     def deep_dive(key: str):
         conn = get_conn()
         try:
