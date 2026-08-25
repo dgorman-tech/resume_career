@@ -53,6 +53,25 @@ def test_stale_flag(client, tmp_db):
     assert k1["stale"] is True
 
 
+def test_stale_flag_from_rubric_change(client, tmp_db):
+    tmp_db.execute("INSERT INTO job_scores(key, fit, scored_at) VALUES ('k1', 80, '2026-08-20T00:00:00Z')")
+    # profile saved BEFORE scoring (not stale), rubric edited AFTER (stale)
+    tmp_db.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at, rubric_updated_at) "
+                   "VALUES (1,'r','x','2026-08-19T00:00:00Z','2026-08-21T00:00:00Z')")
+    tmp_db.commit()
+    k1 = next(j for j in client.get("/api/jobs").json()["data"] if j["key"] == "k1")
+    assert k1["stale"] is True
+
+
+def test_not_stale_when_scored_after_both(client, tmp_db):
+    tmp_db.execute("INSERT INTO job_scores(key, fit, scored_at) VALUES ('k1', 80, '2026-08-22T00:00:00Z')")
+    tmp_db.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at, rubric_updated_at) "
+                   "VALUES (1,'r','x','2026-08-19T00:00:00Z','2026-08-21T00:00:00Z')")
+    tmp_db.commit()
+    k1 = next(j for j in client.get("/api/jobs").json()["data"] if j["key"] == "k1")
+    assert k1["stale"] is False
+
+
 def test_stats(client, tmp_db):
     body = client.get("/api/stats").json()["data"]
     assert body["open"] == 3 and body["unreviewed"] == 3

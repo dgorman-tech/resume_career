@@ -66,7 +66,7 @@ def err(msg, status=400):
                         content={"ok": False, "data": None, "error": str(msg)})
 
 
-def _row_to_job(row, internal, profile_updated):
+def _row_to_job(row, internal, stale_after):
     d = dict(row)
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
     scored_at = d.get("scored_at")
@@ -84,7 +84,7 @@ def _row_to_job(row, internal, profile_updated):
         "subscores": json.loads(d["subscores"]) if d.get("subscores") else None,
         "why": d.get("why"), "gaps": d.get("gaps"), "angle": d.get("angle"),
         "lens": d.get("lens"), "scored_at": scored_at,
-        "stale": bool(scored_at and profile_updated and profile_updated > scored_at),
+        "stale": bool(scored_at and stale_after and stale_after > scored_at),
         "has_deep_dive": bool(d.get("deep_dive_md")),
     }
 
@@ -150,10 +150,13 @@ def create_app(db_path=None, cfg=None, config_path=None):
         internal = [c.lower() for c in cfg_.get("app", {}).get("internal_companies", [])]
         conn = get_conn()
         try:
-            prof = conn.execute("SELECT updated_at FROM profile WHERE id=1").fetchone()
-            profile_updated = prof["updated_at"] if prof else None
+            prof = conn.execute(
+                "SELECT updated_at, rubric_updated_at FROM profile WHERE id=1").fetchone()
+            cutoffs = [t for t in ((prof["updated_at"], prof["rubric_updated_at"]) if prof else ())
+                       if t]
+            stale_after = max(cutoffs) if cutoffs else None
             rows = conn.execute(JOBS_SQL).fetchall()
-            return ok([_row_to_job(r, internal, profile_updated) for r in rows])
+            return ok([_row_to_job(r, internal, stale_after) for r in rows])
         finally:
             conn.close()
 
