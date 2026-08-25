@@ -13,10 +13,10 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="glass sticky top-0 z-20 flex items-center gap-4 px-5 py-3">
-        <span className="flex items-center gap-2 font-[family-name:var(--font-display)] text-lg font-bold">
+      <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-hairline bg-paper px-5 py-3">
+        <span className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <Hexagon className="size-5 text-teal" />
-          <span className="grad-text">Career HQ</span>
+          <span>Career HQ</span>
         </span>
         <nav className="flex gap-1 text-sm">
           {(["board", "profile", "settings"] as Tab[]).map((t) => (
@@ -24,7 +24,7 @@ export default function App() {
               key={t}
               onClick={() => setTab(t)}
               className={`rounded-full px-4 py-1 capitalize transition ${
-                tab === t ? "grad-bg font-semibold text-white" : "text-ink-muted hover:text-ink"
+                tab === t ? "bg-teal-wash font-semibold text-teal-deep" : "text-ink-muted hover:text-ink"
               }`}
             >
               {t}

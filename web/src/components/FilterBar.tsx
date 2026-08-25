@@ -23,8 +23,8 @@ export function FilterBar({ filters, setFilters, count, searchRef }: {
   searchRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const chip = (active: boolean) =>
-    clsx("rounded-full px-3 py-1 text-xs font-semibold transition",
-      active ? "grad-bg text-white" : "glass text-ink-muted hover:text-ink");
+    clsx("rounded-full px-3 py-1 text-xs transition",
+      active ? "bg-teal-wash font-semibold text-teal-deep" : "bg-sunken text-ink-muted hover:text-ink");
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
       <input
@@ -32,7 +32,7 @@ export function FilterBar({ filters, setFilters, count, searchRef }: {
         value={filters.q}
         onChange={(e) => setFilters({ ...filters, q: e.target.value })}
         placeholder="Search roles…  ( / )"
-        className="glass w-64 rounded-full px-4 py-1.5 text-sm text-ink outline-none placeholder:text-ink-muted/60 focus:border-teal/50"
+        className="field w-64 rounded-full px-4 py-1.5 text-sm"
       />
       {STATUS_CHIPS.map(([s, label]) => (
         <button key={s} className={chip(filters.status === s)} onClick={() => setFilters({ ...filters, status: s })}>

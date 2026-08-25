@@ -22,9 +22,9 @@ export function ChipListInput({ label, values, onChange, hint }: Props) {
     <div>
       <label className="text-xs font-semibold text-ink-muted">{label}</label>
       {hint && <p className="text-[11px] text-ink-muted">{hint}</p>}
-      <div className="glass mt-1 flex flex-wrap items-center gap-1.5 rounded-xl p-2">
+      <div className="field mt-1 flex flex-wrap items-center gap-1.5 p-2 focus-within:border-teal">
         {values.map((v) => (
-          <span key={v} className="flex items-center gap-1 rounded-full bg-night-2 px-2.5 py-0.5 text-xs">
+          <span key={v} className="flex items-center gap-1 rounded-full bg-sunken px-2.5 py-0.5 text-xs text-ink">
             {v}
             <button aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))}
               className="text-ink-muted transition hover:text-ink">
@@ -44,7 +44,7 @@ export function ChipListInput({ label, values, onChange, hint }: Props) {
           }}
           onBlur={add}
           placeholder="add…"
-          className="min-w-24 grow bg-transparent text-xs text-ink outline-none"
+          className="min-w-24 grow bg-transparent text-xs text-ink outline-none placeholder:text-ink-muted"
         />
       </div>
     </div>

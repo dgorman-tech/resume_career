@@ -126,7 +126,7 @@ A restrained daylight palette: teal-tinted paper neutrals, one deep teal voice, 
 - **Hairline** (#dce4e2): 1px borders, dividers, table rules.
 - **Briefing Ink** (#1a2523): primary text. Near-black with a teal cast; never #000.
 - **Ink Muted** (#566361): secondary text, labels, inactive nav. AA on all surfaces.
-- **Ink Faint** (#8b9895): placeholders, disabled text, unscored dials. Never body copy.
+- **Ink Faint** (#8b9895): disabled text, unscored dials, decorative dashes. Never body copy, and never placeholders (placeholders use Ink Muted; faint gray fails the 4.5:1 bar).
 
 ### Named Rules
 **The One Voice Rule.** Harbor Teal appears on at most 10% of any screen. Its rarity is what makes selection and action legible. If two teal fills are touching, one of them is wrong.
@@ -199,7 +199,7 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - **Style:** Label-adjacent Inter 600 at 0.875rem in a full-radius pill row. Inactive = Ink Muted text, transparent; hover = Briefing Ink; active = Teal Wash fill with Harbor Teal Deep text. The header itself is Morning Paper with a Hairline bottom border — no glass, no blur, no gradient logo text. The wordmark is Briefing Ink with a Harbor Teal glyph.
 
 ### Score Dial (signature component)
-- The conic-gradient fit dial survives the redesign: track in Sunken Well, fill in the score's signal color (≥85 Harbor Teal, 70–84 Signal Amber, below Ink Faint), numeral in JetBrains Mono. Unscored = dashed Hairline circle with an Ink Faint en dash. It is the one place a "gradient" exists, and it is data, not decoration.
+- The conic-gradient fit dial survives the redesign: track in Sunken Well, fill in the score's signal color (≥85 Harbor Teal, 70–84 Signal Amber, below Ink Muted so the numeral stays legible), numeral in JetBrains Mono. Unscored = dashed Hairline circle with an Ink Faint en dash. It is the one place a "gradient" exists, and it is data, not decoration.
 
 ## 6. Do's and Don'ts
 

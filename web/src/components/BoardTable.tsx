@@ -47,17 +47,18 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
 }) {
   const header = (col: Sort["col"] | null, label: string, w: string) => (
     <th key={label + w}
-      className={clsx("px-2 py-2 text-left text-[10px] font-bold tracking-wider text-ink-muted", w,
-        col && "cursor-pointer select-none hover:text-ink")}
+      className={clsx(
+        "px-2 py-2 text-left font-mono text-[11px] font-medium tracking-[0.08em] text-ink-muted shadow-[inset_0_-1px_0_var(--color-hairline)]",
+        w, col && "cursor-pointer select-none hover:text-ink")}
       onClick={col ? () => setSort({ col, dir: sort.col === col && sort.dir === "desc" ? "asc" : "desc" }) : undefined}
     >
       {label}{col === sort.col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
   return (
-    <div className="glass overflow-auto rounded-xl">
+    <div className="panel overflow-auto">
       <table className="w-full table-fixed border-collapse text-[13px]">
-        <thead className="sticky top-0 z-10 bg-night-2/95 backdrop-blur">
+        <thead className="sticky top-0 z-10 bg-surface">
           <tr>{COLS.map(([c, l, w]) => header(c, l, w))}</tr>
         </thead>
         <tbody>
@@ -67,20 +68,20 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
               data-key={j.key}
               onClick={() => onSelect(j.key)}
               className={clsx(
-                "h-[38px] cursor-pointer border-t border-white/5 transition hover:bg-white/5",
-                selectedKey === j.key && "bg-teal/10 shadow-[inset_3px_0_0_var(--color-teal)]",
-                j.status === "dismissed" && "opacity-40",
+                "h-[38px] cursor-pointer border-t border-hairline transition hover:bg-sunken/60",
+                selectedKey === j.key && "bg-teal-wash hover:bg-teal-wash",
+                j.status === "dismissed" && "opacity-45",
               )}
             >
               <td className="px-2"><ScoreDial value={j.fit} /></td>
               <td className="px-2"><Badges job={j} /></td>
               <td className="truncate px-2 font-semibold">{j.company}</td>
-              <td className="truncate px-2 text-ink/90">{j.title}</td>
+              <td className="truncate px-2 text-ink">{j.title}</td>
               <td className="truncate px-2 text-ink-muted">{j.location}</td>
-              <td className="px-2 font-[family-name:var(--font-mono)] text-xs text-teal">
+              <td className="px-2 font-mono text-xs text-ink">
                 {fmtSalary(j.salary_min, j.salary_max)}
               </td>
-              <td className="px-2 font-[family-name:var(--font-mono)] text-xs text-ink-muted">{fmtAge(j.first_seen)}</td>
+              <td className="px-2 font-mono text-xs text-ink-muted">{fmtAge(j.first_seen)}</td>
               <td className="px-2"><StatusPill status={j.status} onChange={(s) => onStatus(j.key, s)} /></td>
             </tr>
           ))}
@@ -88,7 +89,7 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
       </table>
       {jobs.length === 0 && (
         <p className="p-10 text-center text-sm text-ink-muted">
-          Inbox zero — nothing matches these filters. ✨
+          Nothing matches these filters. Clear a filter, or wait for the next watcher run.
         </p>
       )}
     </div>

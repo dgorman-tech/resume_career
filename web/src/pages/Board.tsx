@@ -71,9 +71,9 @@ export default function Board() {
       </div>
       <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef} />
       {isLoading ? (
-        <div className="glass space-y-px overflow-hidden rounded-xl">
+        <div className="panel space-y-px overflow-hidden">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-[38px] animate-pulse bg-white/5" />
+            <div key={i} className="h-[38px] animate-pulse bg-sunken" />
           ))}
         </div>
       ) : (

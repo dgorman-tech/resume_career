@@ -82,7 +82,7 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
     }
   };
 
-  const input = "glass mt-0.5 w-full rounded-lg px-2.5 py-1.5 text-sm text-ink outline-none focus:border-teal/40";
+  const input = "field mt-0.5 w-full px-2.5 py-1.5 text-sm";
   const field = (label: string, value: string, set: (v: string) => void, hint?: string) => (
     <label className="block text-xs font-semibold text-ink-muted">
       {label}
@@ -95,9 +95,9 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="glass fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[26rem] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-xl !bg-night-2/95 p-5 text-sm">
-          <Dialog.Title className="grad-text mb-3 font-[family-name:var(--font-display)] font-bold">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30" />
+        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[26rem] -translate-x-1/2 -translate-y-1/2 overflow-auto p-5 text-sm shadow-overlay">
+          <Dialog.Title className="mb-3 text-[15px] font-semibold">
             {initial ? "Edit company" : "Add company"}
           </Dialog.Title>
           <div className="space-y-3">
@@ -139,24 +139,24 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
             )}
           </div>
           {test.kind === "done" && (
-            <div className="mt-3 rounded-lg border border-teal/30 p-2 text-xs">
-              <p className="font-semibold text-teal">found {test.result.jobs_found} jobs ✓</p>
+            <div className="mt-3 rounded-md bg-teal-wash p-2 text-xs">
+              <p className="font-semibold text-teal-deep">found {test.result.jobs_found} jobs ✓</p>
               {test.result.sample_titles.map((t) => (
                 <p key={t} className="text-ink-muted">· {t}</p>
               ))}
             </div>
           )}
           {test.kind === "failed" && (
-            <p className="mt-3 rounded-lg border border-amber/40 p-2 text-xs text-amber">{test.error}</p>
+            <p className="mt-3 rounded-md bg-sunken p-2 text-xs text-red">{test.error}</p>
           )}
           <div className="mt-4 flex items-center gap-2">
             <button onClick={() => void runTest()} disabled={!built || test.kind === "loading"}
-              className="glass rounded-full px-4 py-1.5 text-sm disabled:opacity-50">
+              className="rounded-md border border-hairline px-4 py-1.5 text-sm text-ink transition hover:bg-sunken disabled:opacity-50">
               {test.kind === "loading" ? "Testing…" : "Test fetch"}
             </button>
             <div className="grow" />
             <button onClick={() => built && onSave(built)} disabled={!built}
-              className="grad-bg rounded-full px-5 py-1.5 text-sm font-bold text-white disabled:opacity-50">
+              className="rounded-md bg-teal px-5 py-1.5 text-sm font-semibold text-paper transition hover:bg-teal-deep disabled:opacity-50">
               Save company
             </button>
           </div>

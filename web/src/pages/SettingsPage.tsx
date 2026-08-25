@@ -71,7 +71,7 @@ export default function SettingsPage() {
       const updated = await putSettings(settings);
       setSettings(updated);
       qc.setQueryData(["settings"], updated);
-      toast.success("Settings saved — changes take effect on the next watcher run");
+      toast.success("Settings saved; changes take effect on the next watcher run");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -79,8 +79,8 @@ export default function SettingsPage() {
     }
   };
 
-  const input = "glass mt-0.5 w-full rounded-lg px-2.5 py-1.5 text-sm text-ink outline-none focus:border-teal/40";
-  const h2 = "font-[family-name:var(--font-display)] text-base font-bold";
+  const input = "field mt-0.5 w-full px-2.5 py-1.5 text-sm";
+  const h2 = "text-base font-semibold";
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -88,18 +88,18 @@ export default function SettingsPage() {
         <div className="mb-2 flex items-center gap-3">
           <h2 className={h2}>Companies</h2>
           <button onClick={() => setDialog({ open: true, index: null })}
-            className="glass flex items-center gap-1 rounded-full px-3 py-1 text-xs">
+            className="flex items-center gap-1 rounded-md border border-hairline px-3 py-1 text-xs text-ink transition hover:bg-sunken">
             <Plus className="size-3.5" /> Add company
           </button>
         </div>
-        <div className="glass overflow-hidden rounded-xl">
+        <div className="panel overflow-hidden">
           <table className="w-full text-sm">
             <tbody>
               {settings.companies.map((c, i) => (
-                <tr key={`${c.adapter}:${c.name}`} className="border-b border-white/5 last:border-0">
+                <tr key={`${c.adapter}:${c.name}`} className="border-b border-hairline last:border-0">
                   <td className="px-3 py-2 font-semibold">{c.name}</td>
                   <td className="px-3 py-2 text-xs text-ink-muted">T{c.tier} · {c.adapter}</td>
-                  <td className="px-3 py-2 font-[family-name:var(--font-mono)] text-xs text-ink-muted">
+                  <td className="px-3 py-2 font-mono text-xs text-ink-muted">
                     {companyDetail(c)}
                   </td>
                   <td className="px-3 py-2">
@@ -109,14 +109,14 @@ export default function SettingsPage() {
                       <button aria-label={`Edit ${c.name}`} onClick={() => setDialog({ open: true, index: i })}
                         className="text-ink-muted transition hover:text-ink"><Pencil className="size-4" /></button>
                       <button aria-label={`Delete ${c.name}`} onClick={() => removeCompany(i)}
-                        className="text-ink-muted transition hover:text-amber"><Trash2 className="size-4" /></button>
+                        className="text-ink-muted transition hover:text-red"><Trash2 className="size-4" /></button>
                     </div>
                   </td>
                 </tr>
               ))}
               {settings.companies.length === 0 && (
                 <tr><td className="px-3 py-4 text-xs text-ink-muted">
-                  No companies yet — add one to start watching.
+                  No companies yet. Add one to start watching.
                 </td></tr>
               )}
             </tbody>
@@ -138,7 +138,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <details className="glass rounded-xl p-4">
+      <details className="panel p-4">
         <summary className={`${h2} cursor-pointer`}>Advanced</summary>
         <div className="mt-3 space-y-3">
           <label className="block text-xs font-semibold text-ink-muted">
@@ -161,7 +161,7 @@ export default function SettingsPage() {
               onChange={(e) => patch({ app: { ...settings.app, deep_dive_model: e.target.value } })} className={input} />
           </label>
           <label className="flex items-center gap-2 text-xs font-semibold text-ink-muted">
-            <input type="checkbox" checked={settings.app.batch_scoring}
+            <input type="checkbox" className="accent-teal" checked={settings.app.batch_scoring}
               onChange={(e) => patch({ app: { ...settings.app, batch_scoring: e.target.checked } })} />
             Score new matches automatically after each watcher run
           </label>
@@ -169,7 +169,7 @@ export default function SettingsPage() {
       </details>
 
       <button onClick={() => void save()} disabled={saving}
-        className="grad-bg rounded-full px-5 py-1.5 text-sm font-bold text-white disabled:opacity-50">
+        className="rounded-md bg-teal px-5 py-1.5 text-sm font-semibold text-paper transition hover:bg-teal-deep disabled:opacity-50">
         {saving ? "Saving…" : "Save settings"}
       </button>
 

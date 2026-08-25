@@ -2,18 +2,25 @@ import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { clsx } from "clsx";
 import type { Status } from "../lib/types";
 
-const LABELS: Record<Status, string> = {
+const PILL_LABELS: Record<Status, string> = {
+  new: "NEW",
+  interested: "INTERESTED",
+  dismissed: "DISMISSED",
+  applied: "APPLIED",
+};
+
+const MENU_LABELS: Record<Status, string> = {
   new: "New",
-  interested: "★ Interested",
-  dismissed: "✕ Dismissed",
-  applied: "✓ Applied",
+  interested: "Interested",
+  dismissed: "Dismissed",
+  applied: "Applied",
 };
 
 const STYLES: Record<Status, string> = {
-  new: "border-white/20 text-ink-muted",
-  interested: "border-teal/60 text-teal",
-  dismissed: "border-white/10 text-ink-muted/60",
-  applied: "border-violet/60 text-violet",
+  new: "bg-sunken text-ink-muted hover:text-ink",
+  interested: "bg-teal-wash text-teal-deep",
+  dismissed: "text-ink-faint hover:text-ink-muted",
+  applied: "bg-teal text-paper",
 };
 
 export function StatusPill({ status, onChange }: { status: Status; onChange: (s: Status) => void }) {
@@ -23,25 +30,25 @@ export function StatusPill({ status, onChange }: { status: Status; onChange: (s:
         <button
           onClick={(e) => e.stopPropagation()}
           className={clsx(
-            "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap transition hover:border-white/40",
+            "rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium tracking-[0.08em] whitespace-nowrap transition",
             STYLES[status],
           )}
         >
-          {LABELS[status]} ▾
+          {PILL_LABELS[status]} ▾
         </button>
       </Dropdown.Trigger>
       <Dropdown.Portal>
-        <Dropdown.Content className="glass z-50 min-w-32 rounded-lg p-1 text-sm" sideOffset={4}>
-          {(Object.keys(LABELS) as Status[]).map((s) => (
+        <Dropdown.Content className="panel z-50 min-w-32 rounded-md p-1 text-sm shadow-raised" sideOffset={4}>
+          {(Object.keys(PILL_LABELS) as Status[]).map((s) => (
             <Dropdown.Item
               key={s}
               onSelect={(e) => {
                 e.stopPropagation();
                 onChange(s);
               }}
-              className="cursor-pointer rounded-md px-3 py-1.5 text-ink outline-none data-[highlighted]:bg-white/10"
+              className="cursor-pointer rounded-sm px-3 py-1.5 text-ink outline-none data-[highlighted]:bg-sunken"
             >
-              {LABELS[s]}
+              {MENU_LABELS[s]}
             </Dropdown.Item>
           ))}
         </Dropdown.Content>
