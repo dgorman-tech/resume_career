@@ -1,5 +1,7 @@
 # Secrets / personal config (target companies, ntfy topic)
 watcher/config.json
+watcher/config.json.bak*
+watcher/config.json.tmp
 
 # Generated data — job listings, salary data, personal digests
 watcher/watcher.db

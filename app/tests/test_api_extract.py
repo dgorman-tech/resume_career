@@ -55,9 +55,9 @@ def make_pdf(text):
 
 
 def test_extracts_plain_text_file(client):
-    resp = upload(client, "resume.txt", "Daniel\nSenior Manager".encode("utf-8"))
+    resp = upload(client, "resume.txt", "Jordan Avery\nSenior Manager".encode("utf-8"))
     assert resp.json()["ok"] is True
-    assert resp.json()["data"]["text"] == "Daniel\nSenior Manager"
+    assert resp.json()["data"]["text"] == "Jordan Avery\nSenior Manager"
 
 
 def test_extracts_markdown_file(client):
@@ -66,10 +66,10 @@ def test_extracts_markdown_file(client):
 
 
 def test_extracts_docx_paragraphs(client):
-    content = make_docx(["Daniel Gorman", "Experience: risk analytics"])
+    content = make_docx(["Jordan Avery", "Experience: risk analytics"])
     resp = upload(client, "resume.docx", content)
     text = resp.json()["data"]["text"]
-    assert "Daniel Gorman" in text
+    assert "Jordan Avery" in text
     assert "risk analytics" in text
 
 
