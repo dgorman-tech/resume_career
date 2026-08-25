@@ -1,5 +1,5 @@
-import type { Company, Health, Job, Profile, Settings, Stats, Status,
-              TestCompanyResult } from "./types";
+import type { Company, DimensionEdit, DimensionsPayload, Health, Job, Profile, Settings, Stats,
+              Status, TestCompanyResult } from "./types";
 
 interface Envelope<T> {
   ok: boolean;
@@ -36,6 +36,14 @@ export const scoreUnscored = (limit: number) =>
   });
 export const getScoringStatus = () =>
   call<{ running: boolean; done: number; total: number; errors: number }>("/api/scoring-status");
+
+export const getDimensions = () => call<DimensionsPayload>("/api/dimensions");
+export const putDimensions = (dims: DimensionEdit[]) =>
+  call<DimensionsPayload>("/api/dimensions", { method: "PUT", body: JSON.stringify({ dimensions: dims }) });
+export const putWeights = (weights: Record<string, number>, holistic_weight: number) =>
+  call<DimensionsPayload>("/api/dimensions/weights", {
+    method: "PUT", body: JSON.stringify({ weights, holistic_weight }),
+  });
 
 export const getSettings = () => call<Settings>("/api/settings");
 export const putSettings = (s: Settings) =>

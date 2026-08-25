@@ -8,7 +8,7 @@ import { Badges } from "./Badges";
 import { DeepDivePanel } from "./DeepDivePanel";
 import { ScoreDial } from "./ScoreDial";
 
-const SUB_LABELS: Array<[keyof NonNullable<Job["subscores"]>, string]> = [
+const SUB_LABELS: Array<[string, string]> = [
   ["comp", "COMP"], ["player_coach", "PLAYER-COACH"], ["cost_center", "COST CENTER"],
   ["flex", "FLEX"], ["level", "LEVEL"],
 ];
@@ -116,7 +116,7 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
                 <div className="flex flex-wrap gap-1.5">
                   {job.subscores && SUB_LABELS.map(([k, label]) => (
                     <span key={k} className="rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-muted">
-                      {label} {job.subscores![k]}
+                      {label} {job.subscores![k] ?? "—"}
                     </span>
                   ))}
                   {job.stale && <span className="text-[11px] text-amber">profile changed since scoring</span>}
