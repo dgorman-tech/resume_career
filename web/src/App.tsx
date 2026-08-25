@@ -3,8 +3,9 @@ import { useState } from "react";
 import { GearDialog } from "./components/GearDialog";
 import Board from "./pages/Board";
 import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 
-export type Tab = "board" | "profile";
+export type Tab = "board" | "profile" | "settings";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("board");
@@ -18,7 +19,7 @@ export default function App() {
           <span className="grad-text">Career HQ</span>
         </span>
         <nav className="flex gap-1 text-sm">
-          {(["board", "profile"] as Tab[]).map((t) => (
+          {(["board", "profile", "settings"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -37,11 +38,9 @@ export default function App() {
         </button>
       </header>
       <main className="min-h-0 grow overflow-auto p-5">
-        {tab === "board" ? (
-          <Board />
-        ) : (
-          <ProfilePage />
-        )}
+        {tab === "board" && <Board />}
+        {tab === "profile" && <ProfilePage />}
+        {tab === "settings" && <SettingsPage />}
       </main>
       <GearDialog open={gearOpen} onClose={() => setGearOpen(false)} />
     </div>
