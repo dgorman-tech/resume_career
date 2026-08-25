@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { RubricEditor } from "../components/RubricEditor";
 import { extractResume, getProfile, putProfile } from "../lib/api";
 import type { Job } from "../lib/types";
 
@@ -50,7 +51,7 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-3xl">
       {staleCount > 0 && (
         <p className="panel mb-4 p-3 text-sm text-amber">
-          {staleCount} scored job{staleCount > 1 ? "s were" : " was"} rated against an older profile.
+          {staleCount} scored job{staleCount > 1 ? "s were" : " was"} rated against an older profile or rubric.
           Re-score them from Health &amp; scoring.
         </p>
       )}
@@ -78,6 +79,7 @@ export default function ProfilePage() {
         </button>
         {data?.updated_at && <span className="text-xs text-ink-muted">last saved {data.updated_at}</span>}
       </div>
+      <RubricEditor />
     </div>
   );
 }

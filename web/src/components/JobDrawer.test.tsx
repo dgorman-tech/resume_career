@@ -51,6 +51,8 @@ function renderDrawer(job: Job, onNote: (key: string, note: string) => void) {
         onScoreNow={noop}
         deepDiveRequested={false}
         onDeepDiveHandled={noop}
+        score={null}
+        dimensions={[]}
       />
     </QueryClientProvider>,
   );
@@ -79,6 +81,8 @@ describe("JobDrawer note autosave", () => {
           onScoreNow={noop}
           deepDiveRequested={false}
           onDeepDiveHandled={noop}
+          score={null}
+          dimensions={[]}
         />
       </QueryClientProvider>,
     );
@@ -95,5 +99,35 @@ describe("JobDrawer note autosave", () => {
     const onNote = vi.fn();
     renderDrawer(JOB_A, onNote);
     expect(onNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("JobDrawer composite score display", () => {
+  const DIMS = [
+    { key: "comp", label: "Compensation", description: "d", weight: 10, position: 1, archived: false },
+    { key: "team_culture", label: "Team culture", description: "d", weight: 10, position: 2, archived: false },
+  ];
+  const drawer = (job: Job, score: number | null, dimensions = DIMS) => {
+    const qc = new QueryClient();
+    return render(
+      <QueryClientProvider client={qc}>
+        <JobDrawer job={job} open onClose={noop} onStatus={noop} onStar={noop}
+          onNote={noop} onScoreNow={noop} deepDiveRequested={false} onDeepDiveHandled={noop}
+          score={score} dimensions={dimensions} />
+      </QueryClientProvider>,
+    );
+  };
+
+  it("shows composite dial, model chip, and dynamic labels with dash for missing", () => {
+    drawer({ ...BASE, fit: 82, subscores: { comp: 95 } }, 88);
+    expect(screen.getByText("88")).toBeInTheDocument();          // composite in the dial
+    expect(screen.getByText(/MODEL 82/)).toBeInTheDocument();    // holistic chip
+    expect(screen.getByText(/COMPENSATION 95/)).toBeInTheDocument();
+    expect(screen.getByText(/TEAM CULTURE —/)).toBeInTheDocument();
+  });
+
+  it("widens the stale message to rubric changes", () => {
+    drawer({ ...BASE, fit: 82, subscores: { comp: 95 }, stale: true }, 82, []);
+    expect(screen.getByText(/profile or rubric changed since scoring/)).toBeInTheDocument();
   });
 });

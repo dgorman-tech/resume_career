@@ -1,15 +1,17 @@
-import { useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BoardTable, DEFAULT_SORT, sortJobs, type Sort } from "../components/BoardTable";
 import { DEFAULT_FILTERS, FilterBar, type Filters } from "../components/FilterBar";
 import { JobDrawer } from "../components/JobDrawer";
 import { KeyboardHelp } from "../components/KeyboardHelp";
 import { StatsBar } from "../components/StatsBar";
+import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
-import { scoreJob } from "../lib/api";
-import type { Job } from "../lib/types";
+import { getDimensions, scoreJob } from "../lib/api";
+import { scoreMap } from "../lib/score";
+import type { DimensionsPayload, Job } from "../lib/types";
 
 export function applyFilters(jobs: Job[], f: Filters): Job[] {
   const q = f.q.trim().toLowerCase();
@@ -35,9 +37,24 @@ export default function Board() {
   const [deepDiveRequested, setDeepDiveRequested] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
+  const dimsQuery = useQuery({ queryKey: ["dimensions"], queryFn: getDimensions });
+  const [tune, setTune] = useState<DimensionsPayload | null>(null);
+  useEffect(() => {
+    if (dimsQuery.data && tune == null) setTune(dimsQuery.data);
+  }, [dimsQuery.data, tune]);
+
+  const activeDims = useMemo(
+    () => (tune?.dimensions ?? []).filter((d) => !d.archived),
+    [tune],
+  );
+  const scores = useMemo(
+    () => scoreMap(jobs ?? [], activeDims, tune?.holistic_weight ?? 50),
+    [jobs, activeDims, tune],
+  );
+
   const visible = useMemo(
-    () => sortJobs(applyFilters(jobs ?? [], filters), sort),
-    [jobs, filters, sort],
+    () => sortJobs(applyFilters(jobs ?? [], filters), sort, scores),
+    [jobs, filters, sort, scores],
   );
   const selected = visible.find((j) => j.key === selectedKey) ?? (jobs ?? []).find((j) => j.key === selectedKey) ?? null;
 
@@ -69,20 +86,22 @@ export default function Board() {
       <div className="mb-3">
         <StatsBar />
       </div>
-      <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef} />
-      {isError ? (
+      <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef}
+        tune={<TuneControl tune={tune} setTune={setTune}
+          onError={() => { setTune(null); void qc.invalidateQueries({ queryKey: ["dimensions"] }); }} />} />
+      {isError || dimsQuery.isError ? (
         <div className="panel p-10 text-center">
           <p className="text-sm font-semibold">Couldn't load jobs</p>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink-muted">
             {error?.message ?? "The Career HQ server didn't respond."} Check that the server is running,
             then try again.
           </p>
-          <button onClick={() => void refetch()}
+          <button onClick={() => { void refetch(); void dimsQuery.refetch(); }}
             className="mt-4 rounded-md bg-teal px-4 py-1.5 text-sm font-semibold text-paper transition hover:bg-teal-deep">
             Retry
           </button>
         </div>
-      ) : isLoading ? (
+      ) : isLoading || tune == null ? (
         <div className="panel space-y-px overflow-hidden">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-[38px] animate-pulse bg-sunken" />
@@ -96,6 +115,7 @@ export default function Board() {
           sort={sort}
           setSort={setSort}
           onStatus={(key, status) => patch(key, { status })}
+          scores={scores}
         />
       )}
       <JobDrawer
@@ -108,6 +128,8 @@ export default function Board() {
         onScoreNow={onScoreNow}
         deepDiveRequested={deepDiveRequested}
         onDeepDiveHandled={() => setDeepDiveRequested(false)}
+        score={selected ? (scores.get(selected.key) ?? null) : null}
+        dimensions={activeDims}
       />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
