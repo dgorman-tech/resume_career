@@ -20,6 +20,7 @@ docs/superpowers/
 node_modules/
 web/dist/
 .env
+.worktrees/
 
 # Personal career strategy & documents — not for public repo
 Career Intelligence Report.md
