@@ -52,6 +52,11 @@ class DimensionsPut(BaseModel):
     dimensions: list[DimensionBody]
 
 
+class WeightsPut(BaseModel):
+    weights: dict[str, int] = {}
+    holistic_weight: Optional[int] = None
+
+
 def ok(data):
     return {"ok": True, "data": data, "error": None}
 
@@ -299,6 +304,37 @@ def create_app(db_path=None, cfg=None, config_path=None):
                         (d.label.strip(), d.description.strip(), d.position, int(d.archived), d.key))
             if rubric_changed:
                 _bump_rubric(conn)
+            conn.commit()
+            return ok(_dimensions_payload(conn))
+        finally:
+            conn.close()
+
+    @app.put("/api/dimensions/weights")
+    def put_weights(body: WeightsPut):
+        conn = get_conn()
+        try:
+            dims = appdb.load_dimensions(conn)  # active only
+            by_key = {d["key"]: d for d in dims}
+            bad = sorted(set(body.weights) - set(by_key))
+            if bad:
+                return err(f"unknown or archived dimension keys: {', '.join(bad)}")
+            candidates = list(body.weights.values())
+            if body.holistic_weight is not None:
+                candidates.append(body.holistic_weight)
+            if any(not 0 <= v <= 100 for v in candidates):
+                return err("weights must be integers 0-100")
+            prof = conn.execute("SELECT holistic_weight FROM profile WHERE id=1").fetchone()
+            holistic = (body.holistic_weight if body.holistic_weight is not None
+                        else (prof["holistic_weight"] if prof else 50))
+            final = {d["key"]: body.weights.get(d["key"], d["weight"]) for d in dims}
+            if holistic + sum(final.values()) <= 0:
+                return err("at least one weight must be greater than zero")
+            for k, v in body.weights.items():
+                conn.execute("UPDATE score_dimensions SET weight=? WHERE key=?", (v, k))
+            if body.holistic_weight is not None:
+                conn.execute("INSERT OR IGNORE INTO profile(id) VALUES (1)")
+                conn.execute("UPDATE profile SET holistic_weight=? WHERE id=1",
+                             (body.holistic_weight,))
             conn.commit()
             return ok(_dimensions_payload(conn))
         finally:

@@ -96,3 +96,41 @@ def test_put_ignores_weight_field(client):
     dims[0]["weight"] = 99
     assert _put(client, dims).json()["ok"] is True
     assert _get(client)["dimensions"][0]["weight"] == 10
+
+
+def _put_weights(client, body):
+    return client.put("/api/dimensions/weights", json=body)
+
+
+def test_weights_partial_update_never_bumps(client, tmp_db):
+    tmp_db.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at) "
+                   "VALUES (1,'r','x','2026-08-24T00:00:00Z')")
+    tmp_db.commit()
+    resp = _put_weights(client, {"weights": {"comp": 40}, "holistic_weight": 20})
+    assert resp.json()["ok"] is True
+    data = resp.json()["data"]
+    assert next(d for d in data["dimensions"] if d["key"] == "comp")["weight"] == 40
+    assert next(d for d in data["dimensions"] if d["key"] == "flex")["weight"] == 10
+    assert data["holistic_weight"] == 20
+    row = tmp_db.execute("SELECT updated_at, rubric_updated_at FROM profile WHERE id=1").fetchone()
+    assert row["updated_at"] == "2026-08-24T00:00:00Z" and row["rubric_updated_at"] is None
+
+
+def test_weights_validation(client, tmp_db):
+    assert _put_weights(client, {"weights": {"ghost": 10}}).status_code == 400
+    assert _put_weights(client, {"weights": {"comp": 101}}).status_code == 400
+    assert _put_weights(client, {"weights": {"comp": -1}}).status_code == 400
+    # archived keys rejected
+    tmp_db.execute("UPDATE score_dimensions SET archived=1 WHERE key='flex'")
+    tmp_db.commit()
+    assert _put_weights(client, {"weights": {"flex": 10}}).status_code == 400
+    # all-zero result rejected
+    zeros = {"weights": {k: 0 for k in ("comp", "player_coach", "cost_center", "level")},
+             "holistic_weight": 0}
+    assert _put_weights(client, zeros).status_code == 400
+
+
+def test_weights_persist_without_profile_row(client, tmp_db):
+    assert _put_weights(client, {"holistic_weight": 70}).json()["data"]["holistic_weight"] == 70
+    # storing holistic on a fresh profile row must not create staleness
+    assert tmp_db.execute("SELECT updated_at FROM profile WHERE id=1").fetchone()["updated_at"] is None
