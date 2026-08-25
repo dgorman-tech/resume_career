@@ -1,4 +1,4 @@
-import type { Company, Health, Job, Profile, Settings, Stats, Status,
+import type { Company, Health, Job, MinLevel, Profile, Settings, Stats, Status,
               TestCompanyResult } from "./types";
 
 interface Envelope<T> {
@@ -21,8 +21,11 @@ export const getJobs = () => call<Job[]>("/api/jobs");
 export const getStats = () => call<Stats>("/api/stats");
 export const getHealth = () => call<Health>("/api/health");
 export const getProfile = () => call<Profile>("/api/profile");
-export const putProfile = (p: { resume_text: string; rules_text: string }) =>
-  call<Profile>("/api/profile", { method: "PUT", body: JSON.stringify(p) });
+export const putProfile = (p: {
+  resume_text: string; rules_text: string;
+  comp_floor_cad: number | null; comp_goal_cad: number | null;
+  max_office_days: number | null; location_text: string; min_level: MinLevel;
+}) => call<Profile>("/api/profile", { method: "PUT", body: JSON.stringify(p) });
 export const patchJob = (
   key: string,
   patch: Partial<{ status: Status; starred: boolean; note: string }>,

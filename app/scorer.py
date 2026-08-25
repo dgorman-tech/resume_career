@@ -66,13 +66,36 @@ def load_profile(conn):
     return row
 
 
+_LEVEL_LABELS = {
+    "ic": "Individual contributor", "manager": "Manager", "senior_manager": "Senior Manager",
+    "director": "Director", "vp_plus": "VP or above",
+}
+
+
+def format_structured_facts(profile):
+    """Render the profile's structured (non-free-text) fields as labeled facts for the prompt."""
+    lines = []
+    floor, goal = profile["comp_floor_cad"], profile["comp_goal_cad"]
+    if floor or goal:
+        lines.append(f"Comp: floor ${floor:,} CAD, goal ${goal:,} CAD" if floor and goal
+                      else f"Comp floor: ${floor:,} CAD" if floor else f"Comp goal: ${goal:,} CAD")
+    if profile["max_office_days"] is not None:
+        lines.append(f"Max office days/week: {profile['max_office_days']}")
+    if profile["location_text"]:
+        lines.append(f"Location: {profile['location_text']}")
+    if profile["min_level"]:
+        lines.append(f"Minimum level: {_LEVEL_LABELS.get(profile['min_level'], profile['min_level'])}")
+    return "\n".join(lines) or "(none set)"
+
+
 def build_batch_prompt(profile, job, jd_text, lens):
     rubric = _INTERNAL_RUBRIC if lens == "internal" else _EXTERNAL_RUBRIC
     salary = ""
     if job.get("salary_min") or job.get("salary_max"):
         salary = f"Posted salary: {job.get('salary_min')} - {job.get('salary_max')} CAD\n"
     return (
-        f"{rubric}\n\n## CANDIDATE RULES\n{profile['rules_text']}\n\n"
+        f"{rubric}\n\n## CANDIDATE FACTS\n{format_structured_facts(profile)}\n\n"
+        f"## CANDIDATE RULES\n{profile['rules_text']}\n\n"
         f"## CANDIDATE RESUME\n{profile['resume_text']}\n\n"
         f"## JOB\nCompany: {job['company']} (tier {job.get('tier')})\n"
         f"Title: {job['title']}\nLocation: {job.get('location', '')}\n{salary}"
@@ -170,6 +193,7 @@ def build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, salary_evid
         f"- {e['title']}: {e['salary_min']}-{e['salary_max']}" for e in salary_evidence) or "(none)"
     return (
         f"{_DEEP_DIVE_INSTRUCTIONS}\n\nLens context:\n{rubric}\n\n"
+        f"## CANDIDATE FACTS\n{format_structured_facts(profile)}\n\n"
         f"## CANDIDATE RULES\n{profile['rules_text']}\n\n## CANDIDATE RESUME\n{profile['resume_text']}\n\n"
         f"## JOB\nCompany: {job['company']} (tier {job.get('tier')})\nTitle: {job['title']}\n"
         f"Location: {job.get('location','')}\nPosted salary: {job.get('salary_min')}-{job.get('salary_max')}\n\n"

@@ -14,9 +14,15 @@ GOOD = json.dumps({"fit": 92,
                    "why": "Strong match.", "gaps": "No dbt.", "angle": "Lead with rigor."})
 
 
-def _seed_profile(conn, rules_text="RULES TEXT"):
-    conn.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at) "
-                 "VALUES (1, 'RESUME TEXT', ?, '2026-08-24T00:00:00Z')", (rules_text,))
+def _seed_profile(conn, rules_text="RULES TEXT", **structured):
+    fields = {"comp_floor_cad": None, "comp_goal_cad": None, "max_office_days": None,
+              "location_text": "", "min_level": "", **structured}
+    conn.execute(
+        """INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad,
+                                max_office_days, location_text, min_level, updated_at)
+           VALUES (1, 'RESUME TEXT', ?, ?, ?, ?, ?, ?, '2026-08-24T00:00:00Z')""",
+        (rules_text, fields["comp_floor_cad"], fields["comp_goal_cad"], fields["max_office_days"],
+         fields["location_text"], fields["min_level"]))
     conn.commit()
 
 
@@ -39,6 +45,22 @@ def test_prompt_contains_profile_job_and_lens(tmp_db):
     assert "170" not in scorer._EXTERNAL_RUBRIC and "170" not in scorer._INTERNAL_RUBRIC
     p_int = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "internal")
     assert "internal" in p_int.lower()
+
+
+def test_structured_facts_included_in_prompt(tmp_db):
+    _seed_profile(tmp_db, comp_floor_cad=170000, comp_goal_cad=200000,
+                  max_office_days=2, location_text="Toronto or Canada-remote",
+                  min_level="senior_manager")
+    job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
+    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external")
+    for needle in ("170,000", "200,000", "Max office days/week: 2",
+                   "Toronto or Canada-remote", "Senior Manager"):
+        assert needle in p
+
+
+def test_structured_facts_absent_when_unset(tmp_db):
+    _seed_profile(tmp_db)
+    assert scorer.format_structured_facts(scorer.load_profile(tmp_db)) == "(none set)"
 
 
 def test_score_job_persists(tmp_db, monkeypatch):

@@ -3,13 +3,33 @@ import { Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { extractResume, getProfile, putProfile } from "../lib/api";
-import type { Job } from "../lib/types";
+import type { Job, MinLevel } from "../lib/types";
+
+const LEVEL_OPTIONS: { value: MinLevel; label: string }[] = [
+  { value: "", label: "Not set" },
+  { value: "ic", label: "Individual contributor" },
+  { value: "manager", label: "Manager" },
+  { value: "senior_manager", label: "Senior Manager" },
+  { value: "director", label: "Director" },
+  { value: "vp_plus", label: "VP or above" },
+];
+
+function toIntOrNull(v: string): number | null {
+  if (v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 export default function ProfilePage() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["profile"], queryFn: getProfile });
   const [resume, setResume] = useState("");
   const [rules, setRules] = useState("");
+  const [compFloor, setCompFloor] = useState<number | null>(null);
+  const [compGoal, setCompGoal] = useState<number | null>(null);
+  const [maxOfficeDays, setMaxOfficeDays] = useState<number | null>(null);
+  const [locationText, setLocationText] = useState("");
+  const [minLevel, setMinLevel] = useState<MinLevel>("");
   const [extracting, setExtracting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -28,14 +48,23 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (data) { setResume(data.resume_text); setRules(data.rules_text); }
+    if (data) {
+      setResume(data.resume_text); setRules(data.rules_text);
+      setCompFloor(data.comp_floor_cad); setCompGoal(data.comp_goal_cad);
+      setMaxOfficeDays(data.max_office_days); setLocationText(data.location_text);
+      setMinLevel(data.min_level);
+    }
   }, [data]);
 
   const staleCount = (qc.getQueryData<Job[]>(["jobs"]) ?? []).filter((j) => j.stale).length;
 
   const save = async () => {
     try {
-      await putProfile({ resume_text: resume, rules_text: rules });
+      await putProfile({
+        resume_text: resume, rules_text: rules,
+        comp_floor_cad: compFloor, comp_goal_cad: compGoal,
+        max_office_days: maxOfficeDays, location_text: locationText, min_level: minLevel,
+      });
       await qc.invalidateQueries({ queryKey: ["profile"] });
       await qc.invalidateQueries({ queryKey: ["jobs"] });
       toast.success("Profile saved; existing scores are now flagged stale");
@@ -45,6 +74,7 @@ export default function ProfilePage() {
   };
 
   const box = "field w-full resize-y p-4 text-[13px] leading-relaxed";
+  const input = "field w-full p-2 text-[13px]";
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -68,8 +98,41 @@ export default function ProfilePage() {
       </p>
       <textarea rows={18} aria-label="Resume" value={resume}
         onChange={(e) => setResume(e.target.value)} className={box} />
+      <h2 className="mt-6 text-base font-semibold">Hard requirements</h2>
+      <p className="mb-2 max-w-prose text-xs text-ink-muted">
+        Structured facts the scorer applies consistently every time, instead of parsing them out of prose.
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Comp floor (CAD)
+          <input type="number" aria-label="Comp floor (CAD)" className={input}
+            value={compFloor ?? ""} onChange={(e) => setCompFloor(toIntOrNull(e.target.value))} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Comp goal (CAD)
+          <input type="number" aria-label="Comp goal (CAD)" className={input}
+            value={compGoal ?? ""} onChange={(e) => setCompGoal(toIntOrNull(e.target.value))} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Max office days/wk
+          <input type="number" min={0} max={5} aria-label="Max office days/week" className={input}
+            value={maxOfficeDays ?? ""} onChange={(e) => setMaxOfficeDays(toIntOrNull(e.target.value))} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Location
+          <input type="text" aria-label="Location" className={input}
+            value={locationText} onChange={(e) => setLocationText(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+          Minimum level
+          <select aria-label="Minimum level" className={input}
+            value={minLevel} onChange={(e) => setMinLevel(e.target.value as MinLevel)}>
+            {LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
+      </div>
       <h2 className="mt-6 text-base font-semibold">Rules & preferences</h2>
-      <p className="mb-2 max-w-prose text-xs text-ink-muted">Comp targets, role shape, cost-center test, flexibility, internal lens.</p>
+      <p className="mb-2 max-w-prose text-xs text-ink-muted">Role shape, cost-center test, sectors, internal lens - anything that needs judgment rather than a hard cutoff.</p>
       <textarea rows={10} value={rules} onChange={(e) => setRules(e.target.value)} className={box} />
       <div className="mt-4 flex items-center gap-3">
         <button onClick={() => void save()}

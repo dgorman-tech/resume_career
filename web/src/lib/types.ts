@@ -44,9 +44,16 @@ export interface Stats {
   median_t1_salary: number | null;
 }
 
+export type MinLevel = "" | "ic" | "manager" | "senior_manager" | "director" | "vp_plus";
+
 export interface Profile {
   resume_text: string;
   rules_text: string;
+  comp_floor_cad: number | null;
+  comp_goal_cad: number | null;
+  max_office_days: number | null;
+  location_text: string;
+  min_level: MinLevel;
   updated_at: string | null;
 }
 

@@ -21,6 +21,7 @@ from app import scorer, jd_fetch
 CONFIG_PATH = appdb.REPO_ROOT / "watcher" / "config.json"
 
 VALID_STATUSES = {"new", "interested", "dismissed", "applied"}
+VALID_LEVELS = {"", "ic", "manager", "senior_manager", "director", "vp_plus"}
 
 BACKFILL_DELAY = 1.5
 # slightly above the resume-upload cap so multipart framing overhead still fits
@@ -38,6 +39,11 @@ class JobStatePatch(BaseModel):
 class ProfileBody(BaseModel):
     resume_text: str
     rules_text: str
+    comp_floor_cad: Optional[int] = None
+    comp_goal_cad: Optional[int] = None
+    max_office_days: Optional[int] = None
+    location_text: str = ""
+    min_level: str = ""
 
 
 def ok(data):
@@ -197,23 +203,40 @@ def create_app(db_path=None, cfg=None, config_path=None):
     def get_profile():
         conn = get_conn()
         try:
-            row = conn.execute("SELECT resume_text, rules_text, updated_at FROM profile WHERE id=1").fetchone()
-            return ok(dict(row) if row else {"resume_text": "", "rules_text": "", "updated_at": None})
+            row = conn.execute(
+                """SELECT resume_text, rules_text, comp_floor_cad, comp_goal_cad, max_office_days,
+                          location_text, min_level, updated_at FROM profile WHERE id=1""").fetchone()
+            return ok(dict(row) if row else {
+                "resume_text": "", "rules_text": "", "comp_floor_cad": None, "comp_goal_cad": None,
+                "max_office_days": None, "location_text": "", "min_level": "", "updated_at": None})
         finally:
             conn.close()
 
     @app.put("/api/profile")
     def put_profile(body: ProfileBody):
+        if body.min_level not in VALID_LEVELS:
+            return err(f"invalid min_level {body.min_level!r}", 400)
+        if body.max_office_days is not None and not (0 <= body.max_office_days <= 5):
+            return err("max_office_days must be between 0 and 5", 400)
         conn = get_conn()
         try:
             ts = appdb.now_iso()
             conn.execute(
-                """INSERT INTO profile(id, resume_text, rules_text, updated_at) VALUES (1,?,?,?)
+                """INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad,
+                                        max_office_days, location_text, min_level, updated_at)
+                   VALUES (1,?,?,?,?,?,?,?,?)
                    ON CONFLICT(id) DO UPDATE SET resume_text=excluded.resume_text,
-                     rules_text=excluded.rules_text, updated_at=excluded.updated_at""",
-                (body.resume_text, body.rules_text, ts))
+                     rules_text=excluded.rules_text, comp_floor_cad=excluded.comp_floor_cad,
+                     comp_goal_cad=excluded.comp_goal_cad, max_office_days=excluded.max_office_days,
+                     location_text=excluded.location_text, min_level=excluded.min_level,
+                     updated_at=excluded.updated_at""",
+                (body.resume_text, body.rules_text, body.comp_floor_cad, body.comp_goal_cad,
+                 body.max_office_days, body.location_text, body.min_level, ts))
             conn.commit()
-            return ok({"resume_text": body.resume_text, "rules_text": body.rules_text, "updated_at": ts})
+            return ok({"resume_text": body.resume_text, "rules_text": body.rules_text,
+                       "comp_floor_cad": body.comp_floor_cad, "comp_goal_cad": body.comp_goal_cad,
+                       "max_office_days": body.max_office_days, "location_text": body.location_text,
+                       "min_level": body.min_level, "updated_at": ts})
         finally:
             conn.close()
 

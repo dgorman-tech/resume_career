@@ -30,7 +30,8 @@ describe("ProfilePage resume upload", () => {
 
   it("fills the resume textarea with extracted text for review without saving", async () => {
     vi.mocked(api.getProfile).mockResolvedValue({
-      resume_text: "old", rules_text: "", updated_at: null,
+      resume_text: "old", rules_text: "", comp_floor_cad: null, comp_goal_cad: null,
+      max_office_days: null, location_text: "", min_level: "", updated_at: null,
     });
     vi.mocked(api.extractResume).mockResolvedValue("EXTRACTED RESUME TEXT");
     renderPage();
@@ -50,7 +51,8 @@ describe("ProfilePage resume upload", () => {
 
   it("shows an error toast when extraction fails and keeps the old text", async () => {
     vi.mocked(api.getProfile).mockResolvedValue({
-      resume_text: "old", rules_text: "", updated_at: null,
+      resume_text: "old", rules_text: "", comp_floor_cad: null, comp_goal_cad: null,
+      max_office_days: null, location_text: "", min_level: "", updated_at: null,
     });
     vi.mocked(api.extractResume).mockRejectedValue(new Error("no text found in file"));
     renderPage();

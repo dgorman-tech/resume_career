@@ -45,9 +45,24 @@ CREATE TABLE IF NOT EXISTS profile (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   resume_text TEXT NOT NULL DEFAULT '',
   rules_text TEXT NOT NULL DEFAULT '',
+  comp_floor_cad INTEGER,
+  comp_goal_cad INTEGER,
+  max_office_days INTEGER,
+  location_text TEXT NOT NULL DEFAULT '',
+  min_level TEXT NOT NULL DEFAULT '',
   updated_at TEXT
 );
 """
+
+# columns added after the initial release; ensure_schema adds them to existing DBs
+# since CREATE TABLE IF NOT EXISTS is a no-op once the table already exists
+PROFILE_ADDED_COLUMNS = [
+    ("comp_floor_cad", "INTEGER"),
+    ("comp_goal_cad", "INTEGER"),
+    ("max_office_days", "INTEGER"),
+    ("location_text", "TEXT NOT NULL DEFAULT ''"),
+    ("min_level", "TEXT NOT NULL DEFAULT ''"),
+]
 
 
 def now_iso():
@@ -65,6 +80,14 @@ def get_conn(db_path=None):
     return conn
 
 
+def _add_missing_columns(conn):
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(profile)").fetchall()}
+    for name, coltype in PROFILE_ADDED_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE profile ADD COLUMN {name} {coltype}")
+
+
 def ensure_schema(conn):
     conn.executescript(SCHEMA)
+    _add_missing_columns(conn)
     conn.commit()
