@@ -128,6 +128,8 @@ export default function Board() {
         onScoreNow={onScoreNow}
         deepDiveRequested={deepDiveRequested}
         onDeepDiveHandled={() => setDeepDiveRequested(false)}
+        score={selected ? (scores.get(selected.key) ?? null) : null}
+        dimensions={activeDims}
       />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
