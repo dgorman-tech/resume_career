@@ -7,7 +7,8 @@ import type { DimensionEdit } from "../lib/types";
 
 const MAX_ACTIVE = 8;
 
-export function RubricEditor() {
+/** `onSaved` lets the host (the rubric dialog) close itself once the save lands. */
+export function RubricEditor({ onSaved }: { onSaved?: () => void } = {}) {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["dimensions"], queryFn: getDimensions });
   const [dims, setDims] = useState<DimensionEdit[]>([]);
@@ -45,6 +46,7 @@ export function RubricEditor() {
       await qc.invalidateQueries({ queryKey: ["dimensions"] });
       await qc.invalidateQueries({ queryKey: ["jobs"] });
       toast.success("Rubric saved; affected scores are now flagged stale");
+      onSaved?.();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -54,12 +56,7 @@ export function RubricEditor() {
 
   const idx = (d: DimensionEdit) => dims.indexOf(d);
   return (
-    <div className="mt-8">
-      <h2 className="text-base font-semibold">Scoring rubric</h2>
-      <p className="mb-2 max-w-prose text-xs text-ink-muted">
-        The model scores every job against these dimensions. Editing definitions marks existing
-        scores stale until re-scored; ranking weights live on the Board and never require re-scoring.
-      </p>
+    <div>
       <div className="space-y-3">
         {active.map((d, i) => (
           <div key={d.key ?? `new-${idx(d)}`} className="panel space-y-2 p-3">
