@@ -32,7 +32,7 @@ export function sortJobs(jobs: Job[], sort: Sort): Job[] {
 }
 
 const COLS: Array<[Sort["col"] | null, string, string]> = [
-  ["fit", "FIT", "w-12"], ["tier", "", "w-14"], ["company", "COMPANY", "w-36"],
+  ["fit", "FIT", "w-12"], ["tier", "", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
   [null, "TITLE", ""], [null, "LOCATION", "w-44"], ["salary", "SALARY", "w-28"],
   ["posted", "POSTED", "w-20"], [null, "STATUS", "w-28"],
 ];
@@ -74,7 +74,7 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
               )}
             >
               <td className="px-2"><ScoreDial value={j.fit} /></td>
-              <td className="px-2"><Badges job={j} /></td>
+              <td className="overflow-hidden px-2"><Badges job={j} /></td>
               <td className="truncate px-2 font-semibold">{j.company}</td>
               <td className="truncate px-2 text-ink">{j.title}</td>
               <td className="truncate px-2 text-ink-muted">{j.location}</td>
