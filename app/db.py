@@ -9,6 +9,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DB_DEFAULT = REPO_ROOT / "watcher" / "watcher.db"
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS jobs(
+  key TEXT PRIMARY KEY, company TEXT, tier INTEGER, source TEXT, job_id TEXT,
+  title TEXT, location TEXT, url TEXT,
+  salary_min REAL, salary_max REAL, salary_raw TEXT,
+  posted_at TEXT, first_seen TEXT, last_seen TEXT, closed_at TEXT,
+  matched INTEGER
+);
+CREATE TABLE IF NOT EXISTS runs(
+  ts TEXT, company TEXT, source TEXT, status TEXT,
+  jobs_found INTEGER, matched INTEGER, error TEXT
+);
 CREATE TABLE IF NOT EXISTS job_state (
   key TEXT PRIMARY KEY REFERENCES jobs(key),
   status TEXT NOT NULL DEFAULT 'new'

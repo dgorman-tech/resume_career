@@ -14,6 +14,19 @@ def test_ensure_schema_creates_tables_idempotently(tmp_db):
     assert {"job_state", "job_scores", "jd_cache", "profile"} <= names
 
 
+def test_ensure_schema_creates_jobs_and_runs_on_a_brand_new_db(tmp_path):
+    # a friend's first launch, before the watcher has ever run once: no jobs/runs
+    # tables exist yet, and the app must not depend on the watcher having created them
+    from app import db as appdb
+    conn = appdb.get_conn(tmp_path / "fresh.db")
+    appdb.ensure_schema(conn)
+    names = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    assert {"jobs", "runs"} <= names
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+    conn.close()
+
+
 def test_status_check_constraint(tmp_db):
     import sqlite3, pytest
     tmp_db.execute("INSERT INTO job_state(key, status) VALUES ('k1', 'interested')")
