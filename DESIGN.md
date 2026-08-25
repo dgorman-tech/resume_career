@@ -190,7 +190,8 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - **State:** selected chips switch to Teal Wash fill with Harbor Teal Deep text. No borders in either state.
 
 ### Status Pills
-- **Style:** full-radius, Label typography, tinted fill + matching text, no border: New = Sunken Well + Ink Muted; Interested = Teal Wash + Harbor Teal Deep; Applied = Harbor Teal fill + Morning Paper text (the only filled pill); Dismissed = transparent + Ink Faint.
+- **Style:** full-radius, Label typography, tinted fill + matching text: Unreviewed (status `new`) = Sunken Well + Ink Muted; Interested = Teal Wash + Harbor Teal Deep; Applied = Harbor Teal fill + Morning Paper text (the only filled pill); Dismissed = transparent + Ink Muted with a Hairline border, so it still reads as a pill without a fill.
+- Status label reads "Unreviewed", not "New" — the Badges "NEW" freshness chip already owns that word in the same row.
 - Color never carries the status alone; the label text is always present.
 
 ### Cards / Containers
