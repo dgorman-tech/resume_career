@@ -1,0 +1,49 @@
+import { Hexagon, Settings } from "lucide-react";
+import { useState } from "react";
+import { GearDialog } from "./components/GearDialog";
+import Board from "./pages/Board";
+import ProfilePage from "./pages/ProfilePage";
+
+export type Tab = "board" | "profile";
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("board");
+  const [gearOpen, setGearOpen] = useState(false);
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="glass sticky top-0 z-20 flex items-center gap-4 px-5 py-3">
+        <span className="flex items-center gap-2 font-[family-name:var(--font-display)] text-lg font-bold">
+          <Hexagon className="size-5 text-teal" />
+          <span className="grad-text">Career HQ</span>
+        </span>
+        <nav className="flex gap-1 text-sm">
+          {(["board", "profile"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded-full px-4 py-1 capitalize transition ${
+                tab === t ? "grad-bg font-semibold text-white" : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </nav>
+        <div className="grow" />
+        <button onClick={() => setGearOpen(true)} aria-label="Settings"
+          className="text-ink-muted transition hover:text-ink">
+          <Settings className="size-5" />
+        </button>
+      </header>
+      <main className="min-h-0 grow overflow-auto p-5">
+        {tab === "board" ? (
+          <Board />
+        ) : (
+          <ProfilePage />
+        )}
+      </main>
+      <GearDialog open={gearOpen} onClose={() => setGearOpen(false)} />
+    </div>
+  );
+}

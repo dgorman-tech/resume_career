@@ -8,6 +8,12 @@ A personal job-search tooling project: a local job-posting watcher that's growin
 - **Scheduling** — `watcher.py` runs once daily via Windows Task Scheduler (local, free, no LLM cost). A second scheduled task (Claude Code desktop) runs weekly to read the watcher's output and produce a scored summary — this is where automated judgment gets layered on top of the raw feed.
 - **Storage** — single SQLite DB (`watcher/watcher.db`, gitignored) holds every job ever seen plus poll history. Salary data is captured where the source exposes it (e.g. Ontario pay-transparency listings).
 - **Notifications** — optional push via [ntfy.sh](https://ntfy.sh) to a private topic, set locally in `config.json` and never committed.
+- **Career HQ** (`app/` + `web/`) — local web app over `watcher.db`: FastAPI backend
+  (`python -m uvicorn app.app:app --host 127.0.0.1 --port 8765`, or `career-hq.bat`) serving a
+  Vite/React board with per-job status tracking (`job_state`), Gemini-based fit scoring
+  (`job_scores`, profile + rules stored in the DB, `GEMINI_API_KEY` env var), and JD caching
+  (`jd_cache`). The watcher batch-scores new matches at the end of each daily run; deep dives are
+  on-demand from the UI. The `jobs`/`runs` tables remain watcher-owned; app tables are additive.
 
 ## Config
 
@@ -43,5 +49,6 @@ This repo is public. Personal/sensitive material stays local-only and is never c
 - `watcher/watcher.db`, `watcher.log`, `digests/`, generated HTML/board files — job data and salary data
 - `__pycache__/`
 - Personal strategy documents and resume files at the repo root — comp targets, negotiation strategy, resume drafts
+- `docs/superpowers/`, `.superpowers/`, `scripts/seed_profile.py`, `node_modules/`, `web/dist/` — personal specs/mockups/seeder and build artifacts
 
 Only the code, `watcher/README.md`, and this file are meant to be public.

@@ -1,0 +1,6 @@
+requests
+fastapi
+uvicorn[standard]
+google-genai
+httpx
+pytest

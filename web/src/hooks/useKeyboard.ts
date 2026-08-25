@@ -1,0 +1,52 @@
+import { useEffect } from "react";
+import type { Status } from "../lib/types";
+
+export interface KeyboardOpts {
+  enabled: boolean;
+  keys: string[];
+  selectedKey: string | null;
+  setSelectedKey: (k: string) => void;
+  drawerOpen: boolean;
+  setDrawerOpen: (b: boolean) => void;
+  setStatus: (key: string, s: Status) => void;
+  toggleStar: (key: string) => void;
+  startDeepDive: (key: string) => void;
+  focusSearch: () => void;
+  toggleHelp: () => void;
+}
+
+const TYPING_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+
+export function useKeyboard(o: KeyboardOpts) {
+  useEffect(() => {
+    if (!o.enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || (t && (TYPING_TAGS.has(t.tagName) || t.isContentEditable))) return;
+      const idx = o.selectedKey ? o.keys.indexOf(o.selectedKey) : -1;
+      const move = (delta: number) => {
+        if (o.keys.length === 0) return;
+        const next = idx < 0 ? 0 : Math.min(o.keys.length - 1, Math.max(0, idx + delta));
+        o.setSelectedKey(o.keys[next]);
+        document.querySelector(`tr[data-key="${CSS.escape(o.keys[next])}"]`)?.scrollIntoView({ block: "nearest" });
+      };
+      const withSelected = (fn: (key: string) => void) => o.selectedKey && fn(o.selectedKey);
+      switch (e.key) {
+        case "j": move(1); break;
+        case "k": move(-1); break;
+        case "Enter": case "o": withSelected(() => o.setDrawerOpen(true)); break;
+        case "Escape": o.setDrawerOpen(false); break;
+        case "i": withSelected((k) => o.setStatus(k, "interested")); break;
+        case "x": withSelected((k) => o.setStatus(k, "dismissed")); break;
+        case "a": withSelected((k) => o.setStatus(k, "applied")); break;
+        case "s": withSelected((k) => o.toggleStar(k)); break;
+        case "d": withSelected((k) => { o.setDrawerOpen(true); o.startDeepDive(k); }); break;
+        case "/": e.preventDefault(); o.focusSearch(); break;
+        case "?": o.toggleHelp(); break;
+        default: return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [o]);
+}

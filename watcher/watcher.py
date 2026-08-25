@@ -23,6 +23,7 @@ CONFIG_PATH = BASE_DIR / "config.json"
 LOG_PATH = BASE_DIR / "watcher.log"
 LOG_MAX_LINES = 2000
 NTFY_MAX_TITLES = 6
+SCORE_RETRY_CAP = 30
 
 
 # ---------------------------------------------------------------- utilities
@@ -233,14 +234,63 @@ def fetch_workday(session, cfg, company):
     return jobs
 
 
+def _rmk_strip_html(html):
+    text = re.sub(r"<img[^>]*>", " ", html)
+    text = re.sub(r"</(p|li|ul|ol|div|br|h\d)>", "\n", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    return re.sub(r"[ \t]+", " ", text).strip()
+
+
+def fetch_successfactors_rmk(session, cfg, company):
+    """SAP SuccessFactors RMK career sites (e.g. jobs.scotiabank.com): public RSS,
+    capped at 20 items/feed -> poll several narrow keyword feeds, dedup on numeric id."""
+    from email.utils import parsedate_to_datetime
+    from urllib.parse import quote
+    from xml.etree import ElementTree
+
+    host, location = company["host"], company.get("location", "")
+    seen, jobs = set(), []
+    for i, feed_kw in enumerate(company.get("feeds", [])):
+        query = f"{feed_kw} AND locationSearch:({location})" if location else feed_kw
+        url = f"https://{host}/services/rss/job/?locale=en_US&keywords={quote(query)}"
+        root = ElementTree.fromstring(fetch(session, cfg, "GET", url,
+            headers={"Accept": "application/rss+xml, application/xml, text/xml, */*"}).text)
+        for item in root.iter("item"):
+            link = (item.findtext("link") or "").strip()
+            m = re.search(r"/(\d+)/?(?:\?|$)", link)
+            if not m or m.group(1) in seen:
+                continue
+            seen.add(m.group(1))
+            raw_title = (item.findtext("title") or "").strip()
+            tm = re.match(r"^(.*)\((.*?)\)\s*$", raw_title)
+            title, loc = (tm.group(1).strip(), tm.group(2).strip()) if tm else (raw_title, "")
+            posted = ""
+            try:
+                posted = parsedate_to_datetime(item.findtext("pubDate") or "").strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+            jobs.append({
+                "job_id": m.group(1), "title": title, "location": loc,
+                "url": link.split("?")[0], "posted_at": posted,
+                "salary_min": None, "salary_max": None, "salary_raw": "",
+                "jd_text": _rmk_strip_html(item.findtext("description") or ""),
+            })
+        if i < len(company.get("feeds", [])) - 1:
+            time.sleep(cfg.get("delay_between_requests_seconds", 1.5))
+    return jobs
+
+
 ADAPTERS = {"ashby": fetch_ashby, "lever": fetch_lever,
-            "workable": fetch_workable, "workday": fetch_workday}
+            "workable": fetch_workable, "workday": fetch_workday,
+            "successfactors_rmk": fetch_successfactors_rmk}
 
 
 # ---------------------------------------------------------------- database
 
 def open_db(cfg):
     conn = sqlite3.connect(BASE_DIR / cfg.get("db_path", "watcher.db"))
+    conn.row_factory = sqlite3.Row
     conn.execute("""CREATE TABLE IF NOT EXISTS jobs(
         key TEXT PRIMARY KEY, company TEXT, tier INTEGER, source TEXT, job_id TEXT,
         title TEXT, location TEXT, url TEXT,
@@ -275,7 +325,8 @@ def upsert_jobs(conn, company, jobs, filters):
                  j["title"], j["location"], j["url"], j["salary_min"], j["salary_max"],
                  j["salary_raw"], j["posted_at"], ts, ts, is_match))
             if is_match:
-                new_matched.append({**j, "company": company["name"], "tier": company.get("tier", 9)})
+                new_matched.append({**j, "company": company["name"],
+                                    "tier": company.get("tier", 9), "key": key})
         else:
             conn.execute("UPDATE jobs SET last_seen=?, closed_at=NULL WHERE key=?", (ts, key))
     # anything previously open for this company but absent now -> closed
@@ -510,11 +561,18 @@ def write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats):
     return total_new
 
 
-def push_ntfy(cfg, new_jobs):
+def push_ntfy(cfg, new_jobs, fits=None):
     topic = cfg.get("ntfy_topic", "").strip()
     if not topic or not new_jobs:
         return
-    titles = [f"{j['company']}: {j['title']}" for j in new_jobs[:NTFY_MAX_TITLES]]
+    fits = fits or {}
+    titles = []
+    for j in new_jobs[:NTFY_MAX_TITLES]:
+        line = f"{j['company']}: {j['title']}"
+        fit = fits.get(j.get("key"))
+        if fit is not None:
+            line += f" (fit {fit})"
+        titles.append(line)
     extra = f" (+{len(new_jobs) - NTFY_MAX_TITLES} more)" if len(new_jobs) > NTFY_MAX_TITLES else ""
     try:
         requests.post(f"https://ntfy.sh/{topic}",
@@ -524,6 +582,37 @@ def push_ntfy(cfg, new_jobs):
                       timeout=15)
     except requests.RequestException as exc:
         log(f"ntfy push failed: {exc}")
+
+
+def run_scoring_step(conn, session, cfg, new_matched):
+    """Batch-score new matches (+ bounded unscored backlog). Never raises."""
+    result = {"scored": 0, "failed": 0, "fits": {}}
+    if not cfg.get("app", {}).get("batch_scoring", True):
+        return result
+    try:
+        sys.path.insert(0, str(BASE_DIR.parent))
+        from app import db as appdb, scorer
+    except ImportError as exc:
+        log(f"scoring skipped (app package unavailable: {exc})")
+        return result
+    appdb.ensure_schema(conn)
+    todo = {j["key"]: j.get("jd_text") for j in new_matched}
+    backlog = conn.execute(
+        """SELECT j.key FROM jobs j LEFT JOIN job_scores s ON s.key = j.key
+           WHERE j.matched = 1 AND j.closed_at IS NULL AND s.key IS NULL
+           LIMIT ?""", (SCORE_RETRY_CAP,)).fetchall()
+    for row in backlog:
+        todo.setdefault(row[0], None)
+    for key, inline_jd in todo.items():
+        try:
+            d = scorer.score_job(conn, session, cfg, key, inline_jd=inline_jd)
+            result["scored"] += 1
+            result["fits"][key] = d["fit"]
+        except Exception as exc:
+            result["failed"] += 1
+            log(f"score failed for {key}: {exc}")
+        time.sleep(cfg.get("delay_between_requests_seconds", 1.5))
+    return result
 
 
 # -------------------------------------------------------------------- main
@@ -578,10 +667,16 @@ def run(dry_run=False):
 
     total_new = write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats)
     board_count = write_board(cfg, conn)
+    scoring = {"scored": 0, "failed": 0, "fits": {}}
+    try:
+        scoring = run_scoring_step(conn, session, cfg, all_new)
+    except Exception as exc:
+        log(f"scoring step error (non-fatal): {exc}")
     if not is_first_run:
-        push_ntfy(cfg, all_new)
+        push_ntfy(cfg, all_new, fits=scoring["fits"])
     log(f"run complete: {total_new} new matches{' (baseline seed)' if is_first_run else ''}, "
-        f"{board_count} total open matches on board")
+        f"{board_count} total open matches on board, "
+        f"{scoring['scored']} scored / {scoring['failed']} score-failed")
     conn.close()
     return 0
 
