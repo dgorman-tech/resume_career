@@ -9,6 +9,8 @@ vi.mock("../lib/api", () => ({
   getProfile: vi.fn(),
   putProfile: vi.fn(),
   extractResume: vi.fn(),
+  getDimensions: vi.fn().mockResolvedValue({ dimensions: [], holistic_weight: 50 }),
+  putDimensions: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({

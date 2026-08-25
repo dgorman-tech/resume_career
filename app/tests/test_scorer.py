@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app import scorer
+from app import db as appdb
 
 CFG = {"app": {"internal_companies": ["ExampleBank"], "batch_model": "test-flash"},
        "companies": []}
@@ -32,19 +33,52 @@ def test_pick_lens():
     assert scorer.pick_lens("Wealthsimple", CFG) == "external"
 
 
-def test_prompt_contains_profile_job_and_lens(tmp_db):
+def test_prompt_contains_profile_job_and_generated_rubric(tmp_db):
     # rules_text is a stand-in for the gitignored, DB-only comp/level rules a real profile
-    # would hold; the rubric itself must never embed a real or fake personal number, so this
-    # proves the rules_text -> prompt path carries that data instead.
+    # would hold; the seeded rubric must never embed a personal number, so this proves the
+    # rules_text -> prompt path carries that data instead.
     _seed_profile(tmp_db, rules_text="RULES TEXT floor $170K CAD, goal $200K, Senior Manager level.")
     job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
-    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external")
+    dims = appdb.load_dimensions(tmp_db)
+    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
     for needle in ("RESUME TEXT", "RULES TEXT", "170", "Manager, Analytics Engineering",
-                   "Wealthsimple", "JD BODY"):
+                   "Wealthsimple", "JD BODY", "- comp:", "- player_coach:", "- level:"):
         assert needle in p
-    assert "170" not in scorer._EXTERNAL_RUBRIC and "170" not in scorer._INTERNAL_RUBRIC
-    p_int = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "internal")
-    assert "internal" in p_int.lower()
+    assert "170" not in scorer.build_rubric(dims, "external")
+    assert "170" not in scorer.build_rubric(dims, "internal")
+
+
+def test_rubric_uses_active_dimensions_in_order(tmp_db):
+    tmp_db.execute("UPDATE score_dimensions SET archived=1 WHERE key='flex'")
+    tmp_db.execute(
+        "INSERT INTO score_dimensions(key, label, description, weight, position) "
+        "VALUES ('team_culture','Team culture','collaborative, low-ego team signals.',10,0)")
+    tmp_db.commit()
+    r = scorer.build_rubric(appdb.load_dimensions(tmp_db), "external")
+    assert "- team_culture: collaborative, low-ego team signals." in r
+    assert "flex" not in r
+    assert r.index("team_culture") < r.index("- comp:")          # position 0 sorts first
+    assert "EXTERNAL" in r and "holistic judgment" in r
+
+
+def test_internal_rubric_is_preamble_plus_dimensions(tmp_db):
+    r = scorer.build_rubric(appdb.load_dimensions(tmp_db), "internal")
+    assert "INTERNAL mobility" in r and "Ignore" in r and "- comp:" in r
+
+
+def test_batch_schema_requires_active_keys():
+    s = scorer.build_batch_schema(["comp", "team_culture"])
+    assert s["properties"]["subscores"]["required"] == ["comp", "team_culture"]
+    assert set(s["properties"]["subscores"]["properties"]) == {"comp", "team_culture"}
+
+
+def test_validate_dynamic_keys_and_drops_extras():
+    raw = json.dumps({"fit": 80, "subscores": {"comp": 90, "stray": 10},
+                      "why": "w", "gaps": "g", "angle": "a"})
+    d = scorer._validate(raw, ["comp"])
+    assert d["subscores"] == {"comp": 90}
+    with pytest.raises(scorer.ScorerError):
+        scorer._validate(raw, ["comp", "missing_dim"])
 
 
 def test_structured_facts_included_in_prompt(tmp_db):
@@ -52,7 +86,8 @@ def test_structured_facts_included_in_prompt(tmp_db):
                   max_office_days=2, location_text="Toronto or Canada-remote",
                   min_level="senior_manager")
     job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
-    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external")
+    dims = appdb.load_dimensions(tmp_db)
+    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
     for needle in ("170,000", "200,000", "Max office days/week: 2",
                    "Toronto or Canada-remote", "Senior Manager"):
         assert needle in p

@@ -1,6 +1,7 @@
 """Shared SQLite access for Career HQ. The watcher owns jobs/runs; this module
 owns job_state, job_scores, jd_cache, profile."""
 
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,14 @@ CREATE TABLE IF NOT EXISTS profile (
   min_level TEXT NOT NULL DEFAULT '',
   updated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS score_dimensions (
+  key TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  description TEXT NOT NULL,
+  weight INTEGER NOT NULL DEFAULT 10,
+  position INTEGER NOT NULL,
+  archived INTEGER NOT NULL DEFAULT 0
+);
 """
 
 # columns added after the initial release; ensure_schema adds them to existing DBs
@@ -62,7 +71,49 @@ PROFILE_ADDED_COLUMNS = [
     ("max_office_days", "INTEGER"),
     ("location_text", "TEXT NOT NULL DEFAULT ''"),
     ("min_level", "TEXT NOT NULL DEFAULT ''"),
+    ("holistic_weight", "INTEGER NOT NULL DEFAULT 50"),
+    ("rubric_updated_at", "TEXT"),
 ]
+
+DEFAULT_DIMENSIONS = [
+    ("comp", "Compensation",
+     'posted/likely compensation vs the comp criteria (floor and goal) described in CANDIDATE '
+     'RULES below. If no range is posted, infer cautiously from title/company/market and say so in "why".'),
+    ("player_coach", "Player-coach",
+     "small team leadership WITH hands-on technical work (SQL/Python/BI). Pure people-management "
+     "or pure IC scores low."),
+    ("cost_center", "Cost-center",
+     "is the data/analytics work the PRODUCT (or a direct revenue driver) at this company, or "
+     "internal overhead? Product = high."),
+    ("flex", "Flexibility",
+     "trust-based flexibility (hybrid <=2 days office, or remote). Rigid full-time RTO = near 0."),
+    ("level", "Level",
+     "seniority and scope appropriate to the candidate's current level, as described in CANDIDATE RULES."),
+]
+
+
+def _seed_dimensions(conn):
+    if conn.execute("SELECT COUNT(*) FROM score_dimensions").fetchone()[0]:
+        return
+    conn.executemany(
+        "INSERT INTO score_dimensions(key, label, description, weight, position) VALUES (?,?,?,10,?)",
+        [(k, label, desc, i + 1) for i, (k, label, desc) in enumerate(DEFAULT_DIMENSIONS)])
+
+
+def load_dimensions(conn, include_archived=False):
+    sql = "SELECT key, label, description, weight, position, archived FROM score_dimensions"
+    if not include_archived:
+        sql += " WHERE archived=0"
+    return [dict(r) for r in conn.execute(sql + " ORDER BY position, key").fetchall()]
+
+
+def slugify_label(label, existing_keys):
+    base = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")[:32] or "dim"
+    key, n = base, 1
+    while key in existing_keys:
+        n += 1
+        key = f"{base}_{n}"
+    return key
 
 
 def now_iso():
@@ -90,4 +141,5 @@ def _add_missing_columns(conn):
 def ensure_schema(conn):
     conn.executescript(SCHEMA)
     _add_missing_columns(conn)
+    _seed_dimensions(conn)
     conn.commit()

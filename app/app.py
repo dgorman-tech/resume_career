@@ -46,6 +46,23 @@ class ProfileBody(BaseModel):
     min_level: str = ""
 
 
+class DimensionBody(BaseModel):
+    key: Optional[str] = None
+    label: str
+    description: str
+    position: int
+    archived: bool = False
+
+
+class DimensionsPut(BaseModel):
+    dimensions: list[DimensionBody]
+
+
+class WeightsPut(BaseModel):
+    weights: dict[str, int] = {}
+    holistic_weight: Optional[int] = None
+
+
 def ok(data):
     return {"ok": True, "data": data, "error": None}
 
@@ -55,7 +72,7 @@ def err(msg, status=400):
                         content={"ok": False, "data": None, "error": str(msg)})
 
 
-def _row_to_job(row, internal, profile_updated):
+def _row_to_job(row, internal, stale_after):
     d = dict(row)
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
     scored_at = d.get("scored_at")
@@ -73,9 +90,23 @@ def _row_to_job(row, internal, profile_updated):
         "subscores": json.loads(d["subscores"]) if d.get("subscores") else None,
         "why": d.get("why"), "gaps": d.get("gaps"), "angle": d.get("angle"),
         "lens": d.get("lens"), "scored_at": scored_at,
-        "stale": bool(scored_at and profile_updated and profile_updated > scored_at),
+        "stale": bool(scored_at and stale_after and stale_after > scored_at),
         "has_deep_dive": bool(d.get("deep_dive_md")),
     }
+
+
+def _dimensions_payload(conn):
+    dims = appdb.load_dimensions(conn, include_archived=True)
+    for d in dims:
+        d["archived"] = bool(d["archived"])
+    prof = conn.execute("SELECT holistic_weight FROM profile WHERE id=1").fetchone()
+    return {"dimensions": dims,
+            "holistic_weight": prof["holistic_weight"] if prof else 50}
+
+
+def _bump_rubric(conn):
+    conn.execute("INSERT OR IGNORE INTO profile(id) VALUES (1)")
+    conn.execute("UPDATE profile SET rubric_updated_at=? WHERE id=1", (appdb.now_iso(),))
 
 
 JOBS_SQL = """
@@ -125,10 +156,13 @@ def create_app(db_path=None, cfg=None, config_path=None):
         internal = [c.lower() for c in cfg_.get("app", {}).get("internal_companies", [])]
         conn = get_conn()
         try:
-            prof = conn.execute("SELECT updated_at FROM profile WHERE id=1").fetchone()
-            profile_updated = prof["updated_at"] if prof else None
+            prof = conn.execute(
+                "SELECT updated_at, rubric_updated_at FROM profile WHERE id=1").fetchone()
+            cutoffs = [t for t in ((prof["updated_at"], prof["rubric_updated_at"]) if prof else ())
+                       if t]
+            stale_after = max(cutoffs) if cutoffs else None
             rows = conn.execute(JOBS_SQL).fetchall()
-            return ok([_row_to_job(r, internal, profile_updated) for r in rows])
+            return ok([_row_to_job(r, internal, stale_after) for r in rows])
         finally:
             conn.close()
 
@@ -237,6 +271,98 @@ def create_app(db_path=None, cfg=None, config_path=None):
                        "comp_floor_cad": body.comp_floor_cad, "comp_goal_cad": body.comp_goal_cad,
                        "max_office_days": body.max_office_days, "location_text": body.location_text,
                        "min_level": body.min_level, "updated_at": ts})
+        finally:
+            conn.close()
+
+    @app.get("/api/dimensions")
+    def get_dimensions():
+        conn = get_conn()
+        try:
+            return ok(_dimensions_payload(conn))
+        finally:
+            conn.close()
+
+    @app.put("/api/dimensions")
+    def put_dimensions(body: DimensionsPut):
+        conn = get_conn()
+        try:
+            existing = {d["key"]: d for d in appdb.load_dimensions(conn, include_archived=True)}
+            keyed = [d for d in body.dimensions if d.key is not None]
+            if len({d.key for d in keyed}) != len(keyed):
+                return err("duplicate dimension keys in payload")
+            unknown = [d.key for d in keyed if d.key not in existing]
+            if unknown:
+                return err(f"unknown dimension keys: {', '.join(unknown)}")
+            missing = sorted(set(existing) - {d.key for d in keyed})
+            if missing:
+                return err("payload must include every existing dimension "
+                           f"(missing: {', '.join(missing)}); archive instead of omitting")
+            active = [d for d in body.dimensions if not d.archived]
+            if not 1 <= len(active) <= 8:
+                return err("must have between 1 and 8 active dimensions")
+            labels = [d.label.strip() for d in active]
+            if any(not 1 <= len(l) <= 40 for l in labels):
+                return err("labels must be 1-40 characters")
+            if len({l.lower() for l in labels}) != len(labels):
+                return err("active dimension labels must be unique")
+            if any(not d.description.strip() or len(d.description) > 500 for d in body.dimensions):
+                return err("descriptions must be non-empty and at most 500 characters")
+
+            rubric_changed = False
+            keys = set(existing)
+            for d in body.dimensions:
+                if d.key is None:
+                    key = appdb.slugify_label(d.label.strip(), keys)
+                    keys.add(key)
+                    conn.execute(
+                        """INSERT INTO score_dimensions(key, label, description, weight, position, archived)
+                           VALUES (?,?,?,10,?,?)""",
+                        (key, d.label.strip(), d.description.strip(), d.position, int(d.archived)))
+                    rubric_changed = True
+                else:
+                    old = existing[d.key]
+                    text_changed = (d.label.strip() != old["label"]
+                                    or d.description.strip() != old["description"])
+                    if (text_changed and not d.archived) or bool(old["archived"]) != d.archived:
+                        rubric_changed = True
+                    conn.execute(
+                        "UPDATE score_dimensions SET label=?, description=?, position=?, archived=? WHERE key=?",
+                        (d.label.strip(), d.description.strip(), d.position, int(d.archived), d.key))
+            if rubric_changed:
+                _bump_rubric(conn)
+            conn.commit()
+            return ok(_dimensions_payload(conn))
+        finally:
+            conn.close()
+
+    @app.put("/api/dimensions/weights")
+    def put_weights(body: WeightsPut):
+        conn = get_conn()
+        try:
+            dims = appdb.load_dimensions(conn)  # active only
+            by_key = {d["key"]: d for d in dims}
+            bad = sorted(set(body.weights) - set(by_key))
+            if bad:
+                return err(f"unknown or archived dimension keys: {', '.join(bad)}")
+            candidates = list(body.weights.values())
+            if body.holistic_weight is not None:
+                candidates.append(body.holistic_weight)
+            if any(not 0 <= v <= 100 for v in candidates):
+                return err("weights must be integers 0-100")
+            prof = conn.execute("SELECT holistic_weight FROM profile WHERE id=1").fetchone()
+            holistic = (body.holistic_weight if body.holistic_weight is not None
+                        else (prof["holistic_weight"] if prof else 50))
+            final = {d["key"]: body.weights.get(d["key"], d["weight"]) for d in dims}
+            if holistic + sum(final.values()) <= 0:
+                return err("at least one weight must be greater than zero")
+            for k, v in body.weights.items():
+                conn.execute("UPDATE score_dimensions SET weight=? WHERE key=?", (v, k))
+            if body.holistic_weight is not None:
+                conn.execute("INSERT OR IGNORE INTO profile(id) VALUES (1)")
+                conn.execute("UPDATE profile SET holistic_weight=? WHERE id=1",
+                             (body.holistic_weight,))
+            conn.commit()
+            return ok(_dimensions_payload(conn))
         finally:
             conn.close()
 

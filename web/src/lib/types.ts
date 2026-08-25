@@ -1,11 +1,27 @@
 export type Status = "new" | "interested" | "dismissed" | "applied";
 
-export interface Subscores {
-  comp: number;
-  player_coach: number;
-  cost_center: number;
-  flex: number;
-  level: number;
+export type Subscores = Record<string, number>;
+
+export interface Dimension {
+  key: string;
+  label: string;
+  description: string;
+  weight: number;
+  position: number;
+  archived: boolean;
+}
+
+export interface DimensionsPayload {
+  dimensions: Dimension[];
+  holistic_weight: number;
+}
+
+export interface DimensionEdit {
+  key: string | null;
+  label: string;
+  description: string;
+  position: number;
+  archived: boolean;
 }
 
 export interface Job {

@@ -16,11 +16,12 @@ const STATUS_CHIPS: Array<[Filters["status"], string]> = [
   ["applied", "Applied"], ["dismissed", "Dismissed"],
 ];
 
-export function FilterBar({ filters, setFilters, count, searchRef }: {
+export function FilterBar({ filters, setFilters, count, searchRef, tune }: {
   filters: Filters;
   setFilters: (f: Filters) => void;
   count: number;
   searchRef: React.RefObject<HTMLInputElement | null>;
+  tune?: React.ReactNode;
 }) {
   const chip = (active: boolean) =>
     clsx("rounded-full px-3 py-1 text-xs transition",
@@ -49,6 +50,7 @@ export function FilterBar({ filters, setFilters, count, searchRef }: {
         onClick={() => setFilters({ ...filters, unscoredOnly: !filters.unscoredOnly })}>
         Unscored
       </button>
+      {tune}
       <span aria-live="polite" className="ml-auto text-xs text-ink-muted">{count} shown</span>
     </div>
   );

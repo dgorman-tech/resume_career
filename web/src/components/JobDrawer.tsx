@@ -2,16 +2,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, ExternalLink, Star, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "clsx";
-import type { Job, Status } from "../lib/types";
+import type { Dimension, Job, Status } from "../lib/types";
 import { fmtSalary } from "../lib/format";
 import { Badges } from "./Badges";
 import { DeepDivePanel } from "./DeepDivePanel";
 import { ScoreDial } from "./ScoreDial";
-
-const SUB_LABELS: Array<[keyof NonNullable<Job["subscores"]>, string]> = [
-  ["comp", "COMP"], ["player_coach", "PLAYER-COACH"], ["cost_center", "COST CENTER"],
-  ["flex", "FLEX"], ["level", "LEVEL"],
-];
 
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -22,7 +17,7 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScoreNow, deepDiveRequested, onDeepDiveHandled }: {
+export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScoreNow, deepDiveRequested, onDeepDiveHandled, score, dimensions }: {
   job: Job | null;
   open: boolean;
   onClose: () => void;
@@ -32,6 +27,8 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
   onScoreNow: (key: string) => void;
   deepDiveRequested: boolean;
   onDeepDiveHandled: () => void;
+  score: number | null;
+  dimensions: Dimension[];
 }) {
   const [note, setNote] = useState("");
   const noteTimer = useRef<number | undefined>(undefined);
@@ -106,7 +103,7 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <ScoreDial value={job.fit} size={44} />
+              <ScoreDial value={score} size={44} />
               {job.fit == null ? (
                 <button onClick={() => onScoreNow(job.key)}
                   className="rounded-md bg-teal px-3 py-1 text-xs font-semibold text-paper transition hover:bg-teal-deep">
@@ -114,12 +111,15 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
                 </button>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
-                  {job.subscores && SUB_LABELS.map(([k, label]) => (
-                    <span key={k} className="rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-muted">
-                      {label} {job.subscores![k]}
+                  <span className="rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink">
+                    MODEL {job.fit}
+                  </span>
+                  {dimensions.map((d) => (
+                    <span key={d.key} className="rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink-muted">
+                      {d.label.toUpperCase()} {job.subscores?.[d.key] ?? "—"}
                     </span>
                   ))}
-                  {job.stale && <span className="text-[11px] text-amber">profile changed since scoring</span>}
+                  {job.stale && <span className="text-[11px] text-amber">profile or rubric changed since scoring</span>}
                 </div>
               )}
             </div>
