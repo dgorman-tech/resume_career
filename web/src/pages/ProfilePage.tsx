@@ -50,7 +50,8 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-3xl">
       {staleCount > 0 && (
         <p className="panel mb-4 p-3 text-sm text-amber">
-          {staleCount} scored job{staleCount > 1 ? "s were" : " was"} rated against an older profile; re-score from the gear dialog.
+          {staleCount} scored job{staleCount > 1 ? "s were" : " was"} rated against an older profile.
+          Re-score them from Health &amp; scoring.
         </p>
       )}
       <div className="flex items-center gap-3">
@@ -62,13 +63,13 @@ export default function ProfilePage() {
         <input ref={fileInput} type="file" accept=".docx,.pdf,.txt,.md" aria-label="Upload resume file"
           onChange={(e) => void onFile(e.target.files?.[0])} className="hidden" />
       </div>
-      <p className="mb-2 text-xs text-ink-muted">
+      <p className="mb-2 max-w-prose text-xs text-ink-muted">
         Plain text; sent with every scoring call. Upload a .docx/.pdf/.txt/.md to extract it here.
       </p>
       <textarea rows={18} aria-label="Resume" value={resume}
         onChange={(e) => setResume(e.target.value)} className={box} />
       <h2 className="mt-6 text-base font-semibold">Rules & preferences</h2>
-      <p className="mb-2 text-xs text-ink-muted">Comp targets, role shape, cost-center test, flexibility, internal lens.</p>
+      <p className="mb-2 max-w-prose text-xs text-ink-muted">Comp targets, role shape, cost-center test, flexibility, internal lens.</p>
       <textarea rows={10} value={rules} onChange={(e) => setRules(e.target.value)} className={box} />
       <div className="mt-4 flex items-center gap-3">
         <button onClick={() => void save()}

@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { getHealth, getScoringStatus, scoreUnscored } from "../lib/api";
@@ -47,8 +48,13 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) { window.clearTimeout(timer.current); setProgress(null); onClose(); } }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30" />
-        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2 p-5 text-sm shadow-overlay">
-          <Dialog.Title className="mb-3 text-[15px] font-semibold">Settings & health</Dialog.Title>
+        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 w-96 -translate-x-1/2 -translate-y-1/2 p-6 text-sm shadow-overlay">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <Dialog.Title className="text-[15px] font-semibold">Health &amp; scoring</Dialog.Title>
+            <Dialog.Close aria-label="Close" className="icon-btn -mr-2 shrink-0">
+              <X className="size-4" aria-hidden="true" />
+            </Dialog.Close>
+          </div>
           {health && (
             <table className="w-full">
               <tbody>
@@ -68,7 +74,9 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
           >
             {progress ? `Scoring… ${progress.done}/${progress.total}` : `Score all unscored (${health?.unscored ?? 0})`}
           </button>
-          <p className="mt-2 text-[11px] text-ink-muted">Models are set in watcher/config.json → "app".</p>
+          <p className="mt-2 text-[11px] text-ink-muted">
+            Models are set in the Settings tab, under Advanced.
+          </p>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

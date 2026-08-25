@@ -13,10 +13,11 @@ export function StatsBar() {
     ["MED T1", data.median_t1_salary ? fmtSalary(data.median_t1_salary, null) : "—"],
   ];
   return (
-    <span className="flex gap-4 font-[family-name:var(--font-mono)] text-[11px] text-ink-muted">
+    <span className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tracking-[0.08em]">
       {items.map(([label, v]) => (
         <span key={label}>
-          {v} <span className="opacity-60">{label}</span>
+          <span className="font-medium text-ink">{v}</span>{" "}
+          <span className="text-ink-muted">{label}</span>
         </span>
       ))}
     </span>

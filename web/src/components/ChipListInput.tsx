@@ -22,7 +22,7 @@ export function ChipListInput({ label, values, onChange, hint }: Props) {
     <div>
       <label className="text-xs font-semibold text-ink-muted">{label}</label>
       {hint && <p className="text-[11px] text-ink-muted">{hint}</p>}
-      <div className="field mt-1 flex flex-wrap items-center gap-1.5 p-2 focus-within:border-teal">
+      <div className="field mt-1 flex flex-wrap items-center gap-1.5 p-2">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1 rounded-full bg-sunken px-2.5 py-0.5 text-xs text-ink">
             {v}

@@ -1,5 +1,6 @@
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { clsx } from "clsx";
+import { ChevronDown } from "lucide-react";
 import type { Status } from "../lib/types";
 
 const PILL_LABELS: Record<Status, string> = {
@@ -19,7 +20,7 @@ const MENU_LABELS: Record<Status, string> = {
 const STYLES: Record<Status, string> = {
   new: "bg-sunken text-ink-muted hover:text-ink",
   interested: "bg-teal-wash text-teal-deep",
-  dismissed: "text-ink-faint hover:text-ink-muted",
+  dismissed: "text-ink-muted hover:text-ink",
   applied: "bg-teal text-paper",
 };
 
@@ -29,12 +30,14 @@ export function StatusPill({ status, onChange }: { status: Status; onChange: (s:
       <Dropdown.Trigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
+          aria-label={`Status: ${MENU_LABELS[status]}. Change status.`}
           className={clsx(
-            "rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium tracking-[0.08em] whitespace-nowrap transition",
+            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[11px] font-medium tracking-[0.08em] whitespace-nowrap transition",
             STYLES[status],
           )}
         >
-          {PILL_LABELS[status]} ▾
+          {PILL_LABELS[status]}
+          <ChevronDown className="size-3" aria-hidden="true" />
         </button>
       </Dropdown.Trigger>
       <Dropdown.Portal>

@@ -63,14 +63,17 @@ export function DeepDivePanel({ jobKey, hasExisting, autoStart, onStarted }: {
         </button>
       </div>
       {text && (
-        <div className="prose-sm max-h-96 overflow-auto rounded-md border border-hairline bg-paper p-3 text-[13px] leading-relaxed [&_h1]:mt-3 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:text-ink">
+        <div className="md-body max-h-96 overflow-auto rounded-md border border-hairline bg-paper p-3 text-[13px] leading-relaxed">
           <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{text}</ReactMarkdown>
         </div>
       )}
-      {phase === "error" && text && (
-        <button onClick={() => void run()} className="mt-2 text-xs text-red underline">
-          Stream interrupted: retry (partial text kept above)
-        </button>
+      {phase === "error" && (
+        <p className="mt-2 text-xs text-ink-muted">
+          {text ? "The stream stopped early; the partial analysis is kept above." : "The deep dive couldn't run."}{" "}
+          <button onClick={() => void run()} className="rounded-sm font-semibold text-teal underline">
+            Try again
+          </button>
+        </p>
       )}
     </section>
   );

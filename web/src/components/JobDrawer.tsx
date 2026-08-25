@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ExternalLink, Star, X } from "lucide-react";
+import { Check, ExternalLink, Star, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "clsx";
 import type { Job, Status } from "../lib/types";
@@ -9,7 +9,7 @@ import { DeepDivePanel } from "./DeepDivePanel";
 import { ScoreDial } from "./ScoreDial";
 
 const SUB_LABELS: Array<[keyof NonNullable<Job["subscores"]>, string]> = [
-  ["comp", "COMP"], ["player_coach", "P-COACH"], ["cost_center", "COST-CTR"],
+  ["comp", "COMP"], ["player_coach", "PLAYER-COACH"], ["cost_center", "COST CENTER"],
   ["flex", "FLEX"], ["level", "LEVEL"],
 ];
 
@@ -64,9 +64,10 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
     }
   };
 
-  const action = (label: string, cls: string, fn: () => void) => (
-    <button onClick={fn} className={clsx("rounded-full border px-3 py-1 text-xs font-semibold transition", cls)}>
-      {label}
+  const action = (icon: React.ReactNode, label: string, pressed: boolean, cls: string, fn: () => void) => (
+    <button onClick={fn} aria-pressed={pressed}
+      className={clsx("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition", cls)}>
+      {icon}{label}
     </button>
   );
 
@@ -81,7 +82,7 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
           />
           <motion.aside
             key={job.key}
-            className="fixed top-0 right-0 z-40 flex h-full w-[480px] max-w-[90vw] flex-col overflow-y-auto border-l border-hairline bg-surface p-5 shadow-overlay"
+            className="fixed top-0 right-0 z-40 flex h-full w-[480px] max-w-[90vw] flex-col overflow-y-auto border-l border-hairline bg-surface p-6 shadow-overlay"
             initial={{ x: 480 }} animate={{ x: 0 }} exit={{ x: 480 }}
             transition={{ duration: 0.24, ease: [0.25, 1, 0.5, 1] }}
           >
@@ -99,7 +100,9 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
                   </a>
                 </p>
               </div>
-              <button onClick={onClose} aria-label="Close" className="text-ink-muted hover:text-ink"><X className="size-5" /></button>
+              <button onClick={onClose} aria-label="Close" className="icon-btn -mr-2 shrink-0">
+                <X className="size-5" aria-hidden="true" />
+              </button>
             </div>
 
             <div className="mt-4 flex items-center gap-3">
@@ -116,7 +119,7 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
                       {label} {job.subscores![k]}
                     </span>
                   ))}
-                  {job.stale && <span className="text-[10px] text-amber">profile changed since scoring</span>}
+                  {job.stale && <span className="text-[11px] text-amber">profile changed since scoring</span>}
                 </div>
               )}
             </div>
@@ -129,12 +132,19 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
               autoStart={deepDiveRequested} onStarted={onDeepDiveHandled} />
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              {action("★ Interested", job.status === "interested" ? "border-transparent bg-teal-wash text-teal-deep" : "border-hairline text-ink-muted hover:text-ink", () => onStatus(job.key, "interested"))}
-              {action("✕ Dismiss", job.status === "dismissed" ? "border-transparent bg-sunken text-ink" : "border-hairline text-ink-muted hover:text-ink", () => onStatus(job.key, "dismissed"))}
-              {action("✓ Applied", job.status === "applied" ? "border-transparent bg-teal text-paper" : "border-hairline text-ink-muted hover:text-ink", () => onStatus(job.key, "applied"))}
-              <button onClick={() => onStar(job.key, !job.starred)} aria-label="Star"
-                className={clsx("ml-auto transition", job.starred ? "text-teal" : "text-ink-faint hover:text-teal")}>
-                <Star className="size-5" fill={job.starred ? "currentColor" : "none"} />
+              {action(<Star className="size-3.5" aria-hidden="true" />, "Interested", job.status === "interested",
+                job.status === "interested" ? "border-transparent bg-teal-wash text-teal-deep" : "border-hairline text-ink-muted hover:text-ink",
+                () => onStatus(job.key, "interested"))}
+              {action(<X className="size-3.5" aria-hidden="true" />, "Dismissed", job.status === "dismissed",
+                job.status === "dismissed" ? "border-transparent bg-sunken text-ink" : "border-hairline text-ink-muted hover:text-ink",
+                () => onStatus(job.key, "dismissed"))}
+              {action(<Check className="size-3.5" aria-hidden="true" />, "Applied", job.status === "applied",
+                job.status === "applied" ? "border-transparent bg-teal text-paper" : "border-hairline text-ink-muted hover:text-ink",
+                () => onStatus(job.key, "applied"))}
+              <button onClick={() => onStar(job.key, !job.starred)} aria-pressed={job.starred}
+                aria-label={job.starred ? "Starred" : "Star this job"}
+                className={clsx("icon-btn ml-auto", job.starred && "text-teal hover:text-teal")}>
+                <Star className="size-5" fill={job.starred ? "currentColor" : "none"} aria-hidden="true" />
               </button>
             </div>
 
@@ -146,8 +156,13 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
               className="field mt-4 w-full resize-y p-3 text-[13px]"
             />
 
-            <p className="mt-auto pt-4 font-mono text-[10px] text-ink-muted">
-              <kbd>j</kbd>/<kbd>k</kbd> next · <kbd>i</kbd> interested · <kbd>x</kbd> dismiss · <kbd>a</kbd> applied · <kbd>d</kbd> deep dive · <kbd>esc</kbd> close
+            <p className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-4 text-[11px] text-ink-muted">
+              <span><kbd>j</kbd> <kbd>k</kbd> next</span>
+              <span><kbd>i</kbd> interested</span>
+              <span><kbd>x</kbd> dismiss</span>
+              <span><kbd>a</kbd> applied</span>
+              <span><kbd>d</kbd> deep dive</span>
+              <span><kbd>esc</kbd> close</span>
             </p>
           </motion.aside>
         </>

@@ -37,7 +37,17 @@ export default function SettingsPage() {
     if (data) setSettings(data);
   }, [data]);
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="panel space-y-px overflow-hidden" aria-busy="true" aria-label="Loading settings">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse bg-sunken" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const patch = (p: Partial<Settings>) => setSettings({ ...settings, ...p });
 
@@ -103,13 +113,13 @@ export default function SettingsPage() {
                     {companyDetail(c)}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1">
                       <button aria-label={`Test ${c.name}`} onClick={() => void testRow(c)}
-                        className="text-ink-muted transition hover:text-teal"><FlaskConical className="size-4" /></button>
+                        className="icon-btn hover:text-teal"><FlaskConical className="size-4" aria-hidden="true" /></button>
                       <button aria-label={`Edit ${c.name}`} onClick={() => setDialog({ open: true, index: i })}
-                        className="text-ink-muted transition hover:text-ink"><Pencil className="size-4" /></button>
+                        className="icon-btn"><Pencil className="size-4" aria-hidden="true" /></button>
                       <button aria-label={`Delete ${c.name}`} onClick={() => removeCompany(i)}
-                        className="text-ink-muted transition hover:text-red"><Trash2 className="size-4" /></button>
+                        className="icon-btn hover:text-red"><Trash2 className="size-4" aria-hidden="true" /></button>
                     </div>
                   </td>
                 </tr>
@@ -126,7 +136,7 @@ export default function SettingsPage() {
 
       <section>
         <h2 className={h2}>Filters</h2>
-        <p className="mb-3 text-xs text-ink-muted">
+        <p className="mb-3 max-w-prose text-xs text-ink-muted">
           A job matches when its title has a domain keyword AND a seniority keyword, nothing from the
           exclude list, and its location passes the include/exclude lists. Keywords are saved lowercase.
         </p>

@@ -29,5 +29,12 @@ export function useJobs() {
     },
   });
 
-  return { jobs: query.data, isLoading: query.isLoading, patch: (key: string, patch: JobPatch) => mutation.mutate({ key, patch }) };
+  return {
+    jobs: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error as Error | null,
+    refetch: query.refetch,
+    patch: (key: string, patch: JobPatch) => mutation.mutate({ key, patch }),
+  };
 }

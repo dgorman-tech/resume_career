@@ -25,7 +25,7 @@ export function applyFilters(jobs: Job[], f: Filters): Job[] {
 }
 
 export default function Board() {
-  const { jobs, isLoading, patch } = useJobs();
+  const { jobs, isLoading, isError, error, refetch, patch } = useJobs();
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
@@ -66,11 +66,23 @@ export default function Board() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3">
         <StatsBar />
       </div>
       <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef} />
-      {isLoading ? (
+      {isError ? (
+        <div className="panel p-10 text-center">
+          <p className="text-sm font-semibold">Couldn't load jobs</p>
+          <p className="mx-auto mt-1 max-w-prose text-sm text-ink-muted">
+            {error?.message ?? "The Career HQ server didn't respond."} Check that the server is running,
+            then try again.
+          </p>
+          <button onClick={() => void refetch()}
+            className="mt-4 rounded-md bg-teal px-4 py-1.5 text-sm font-semibold text-paper transition hover:bg-teal-deep">
+            Retry
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="panel space-y-px overflow-hidden">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-[38px] animate-pulse bg-sunken" />

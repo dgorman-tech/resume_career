@@ -13,16 +13,17 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-hairline bg-paper px-5 py-3">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-paper px-6 py-3">
         <span className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
           <Hexagon className="size-5 text-teal" />
           <span>Career HQ</span>
         </span>
-        <nav className="flex gap-1 text-sm">
+        <nav className="flex shrink-0 gap-1 text-sm">
           {(["board", "profile", "settings"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
+              aria-current={tab === t ? "page" : undefined}
               className={`rounded-full px-4 py-1 capitalize transition ${
                 tab === t ? "bg-teal-wash font-semibold text-teal-deep" : "text-ink-muted hover:text-ink"
               }`}
@@ -32,12 +33,12 @@ export default function App() {
           ))}
         </nav>
         <div className="grow" />
-        <button onClick={() => setGearOpen(true)} aria-label="Settings"
-          className="text-ink-muted transition hover:text-ink">
-          <Settings className="size-5" />
+        <button onClick={() => setGearOpen(true)} aria-label="Health and scoring"
+          className="icon-btn -mr-2">
+          <Settings className="size-5" aria-hidden="true" />
         </button>
       </header>
-      <main className="min-h-0 grow overflow-auto p-5">
+      <main className="min-h-0 grow overflow-auto p-6">
         {tab === "board" && <Board />}
         {tab === "profile" && <ProfilePage />}
         {tab === "settings" && <SettingsPage />}

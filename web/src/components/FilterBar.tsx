@@ -29,23 +29,27 @@ export function FilterBar({ filters, setFilters, count, searchRef }: {
     <div className="mb-3 flex flex-wrap items-center gap-2">
       <input
         ref={searchRef}
+        aria-label="Search roles"
         value={filters.q}
         onChange={(e) => setFilters({ ...filters, q: e.target.value })}
         placeholder="Search roles…  ( / )"
-        className="field w-64 rounded-full px-4 py-1.5 text-sm"
+        className="field w-64 px-3 py-1.5 text-sm"
       />
       {STATUS_CHIPS.map(([s, label]) => (
-        <button key={s} className={chip(filters.status === s)} onClick={() => setFilters({ ...filters, status: s })}>
+        <button key={s} aria-pressed={filters.status === s} className={chip(filters.status === s)}
+          onClick={() => setFilters({ ...filters, status: s })}>
           {label}
         </button>
       ))}
-      <button className={chip(filters.internalOnly)} onClick={() => setFilters({ ...filters, internalOnly: !filters.internalOnly })}>
+      <button aria-pressed={filters.internalOnly} className={chip(filters.internalOnly)}
+        onClick={() => setFilters({ ...filters, internalOnly: !filters.internalOnly })}>
         Internal
       </button>
-      <button className={chip(filters.unscoredOnly)} onClick={() => setFilters({ ...filters, unscoredOnly: !filters.unscoredOnly })}>
+      <button aria-pressed={filters.unscoredOnly} className={chip(filters.unscoredOnly)}
+        onClick={() => setFilters({ ...filters, unscoredOnly: !filters.unscoredOnly })}>
         Unscored
       </button>
-      <span className="ml-auto text-xs text-ink-muted">{count} shown</span>
+      <span aria-live="polite" className="ml-auto text-xs text-ink-muted">{count} shown</span>
     </div>
   );
 }

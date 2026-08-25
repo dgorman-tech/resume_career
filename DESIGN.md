@@ -51,9 +51,10 @@ rounded:
 spacing:
   xs: "4px"
   sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "40px"
+  md: "12px"
+  lg: "16px"
+  xl: "24px"
+  xxl: "40px"
 components:
   button-primary:
     backgroundColor: "{colors.harbor-teal}"
@@ -77,7 +78,12 @@ components:
     backgroundColor: "{colors.sunken-well}"
     textColor: "{colors.ink-muted}"
     rounded: "{rounded.full}"
-    padding: "2px 10px"
+    padding: "4px 12px"
+  icon-button:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.md}"
+    size: "36px"
   nav-tab-active:
     backgroundColor: "{colors.teal-wash}"
     textColor: "{colors.harbor-teal-deep}"
@@ -105,6 +111,7 @@ This system explicitly rejects its own predecessor: the dark navy-purple gradien
 - Soft ambient elevation: gentle diffuse shadows, never harsh, never colored
 - Typography-led hierarchy; mono reserved for data and labels
 - Refined, restrained controls that whisper until hovered or focused
+- A strict four-point spacing scale (4, 8, 12, 16, 24, 40); off-scale values like 20px are prohibited
 
 ## 2. Colors
 
@@ -126,7 +133,7 @@ A restrained daylight palette: teal-tinted paper neutrals, one deep teal voice, 
 - **Hairline** (#dce4e2): 1px borders, dividers, table rules.
 - **Briefing Ink** (#1a2523): primary text. Near-black with a teal cast; never #000.
 - **Ink Muted** (#566361): secondary text, labels, inactive nav. AA on all surfaces.
-- **Ink Faint** (#8b9895): disabled text, unscored dials, decorative dashes. Never body copy, and never placeholders (placeholders use Ink Muted; faint gray fails the 4.5:1 bar).
+- **Ink Faint** (#8b9895): decoration only, never a foreground. It reaches just 2.9:1 on paper, so it fails both the 4.5:1 text bar and the 3:1 icon bar. Legitimate uses: list markers, dashed placeholder borders, hairline-adjacent ornament. Placeholders, disabled labels, and inactive icons all use Ink Muted instead.
 
 ### Named Rules
 **The One Voice Rule.** Harbor Teal appears on at most 10% of any screen. Its rarity is what makes selection and action legible. If two teal fills are touching, one of them is wrong.
@@ -134,6 +141,8 @@ A restrained daylight palette: teal-tinted paper neutrals, one deep teal voice, 
 **The No Pure Rule.** #ffffff and #000000 are forbidden. Every neutral is tinted toward the teal hue (chroma ≈ 0.005 in OKLCH). Screenshots should feel like paper in daylight, not a spec sheet.
 
 **The Semantics-Only Signal Rule.** Amber and red exist for meaning (score bands, errors), never for variety. A screen with no warnings shows no amber.
+
+**The No-Fading Rule.** De-emphasis is a color choice, never an opacity choice. Fading a row or label to 45% drops real content to 1.5:1 contrast; a dismissed row switches to Ink Muted at full opacity instead. Opacity is reserved for elements leaving the screen.
 
 ## 3. Typography
 
@@ -195,6 +204,23 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - **Focus:** border shifts to Harbor Teal plus a soft 3px Teal Wash outer glow. No inner shadows.
 - **Error:** border Signal Red with the message in 0.75rem Signal Red text below. Disabled: Sunken Well fill, Ink Faint text.
 
+### Icon Buttons
+- **Style:** transparent at rest, Ink Muted glyph, 6px radius. Hover fills with Sunken Well and darkens the glyph to Briefing Ink.
+- **Size:** the glyph stays 16-20px but the control is always 36px square. A bare 20px icon is not a control; it is a target you miss.
+- Every icon button carries an `aria-label`, and its glyph is `aria-hidden`.
+
+### Badges
+- **Tier** (T1/T2/T3): Sunken Well fill, Ink Muted text, mono 10px. The quiet default.
+- **NEW**: Teal Wash fill, Harbor Teal Deep text. Earned attention, only for the first 7 days.
+- **INT** (internal posting): solid Briefing Ink fill with Morning Paper text. An internal role is scored through a different lens, so it must never read as just another tier chip.
+
+### Keyboard Keys
+- `kbd` renders as a physical key everywhere it appears: Sunken Well fill, 1px Hairline border, 4px radius, mono 11px. Never style keyboard hints as plain inline text.
+
+### Rendered Markdown
+- LLM output (deep dives) renders inside `.md-body`. Tailwind's reset strips list markers, list indentation, paragraph margins, and heading weight, and no typography plugin is installed, so the container restores them explicitly: disc/decimal markers at 1.25rem indent, 0.75rem block rhythm, 14px semibold headings, teal underlined links, Sunken Well inline code.
+- **The Never-Raw-Markdown Rule.** Markdown rendered without `.md-body` is a defect, not a style preference. Unstyled output reads as one undifferentiated wall of text, which is exactly how a serious analysis stops looking serious.
+
 ### Navigation (header tabs)
 - **Style:** Label-adjacent Inter 600 at 0.875rem in a full-radius pill row. Inactive = Ink Muted text, transparent; hover = Briefing Ink; active = Teal Wash fill with Harbor Teal Deep text. The header itself is Morning Paper with a Hairline bottom border — no glass, no blur, no gradient logo text. The wordmark is Briefing Ink with a Harbor Teal glyph.
 
@@ -210,6 +236,10 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - **Do** set data numerals in JetBrains Mono with tabular figures, and labels in tracked uppercase mono at 11px.
 - **Do** show a visible `:focus-visible` ring on every interactive element and keep every action reachable from the keyboard (WCAG 2.1 AA, 4.5:1 text contrast).
 - **Do** pair every color-coded state with a text label or numeral; color never carries meaning alone.
+- **Do** keep spacing on the four-point scale (4, 8, 12, 16, 24, 40).
+- **Do** give every icon-only control a 36px hit area and an `aria-label`.
+- **Do** render every piece of Markdown through `.md-body`.
+- **Do** de-emphasize with Ink Muted, never with opacity (The No-Fading Rule).
 
 ### Don't:
 - **Don't** reintroduce the old skin: "dark navy-purple gradient backgrounds, violet→teal gradient text, glassmorphism cards, neon accents on dark" (PRODUCT.md). No `backdrop-filter`, no `background-clip: text`, no gradient backgrounds anywhere. The only gradient in the app is the Score Dial's conic data fill.
@@ -219,4 +249,7 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - **Don't** go "cramped hacker terminal": mono is for labels and data only, never body text; whitespace is a feature.
 - **Don't** use side-stripe borders (`border-left` > 1px as accent), identical icon-heading-text card grids, or reach for a modal when inline or a drawer works. The drawer is the default detail surface.
 - **Don't** animate layout properties; motion is opacity/transform only, 150–250ms ease-out, and disappears entirely under `prefers-reduced-motion`.
+- **Don't** use Ink Faint for any text or icon; it fails contrast at 2.9:1 and is decoration only.
+- **Don't** mix icon families. Every glyph comes from lucide; text glyphs like ★, ✕, and ✓ standing in for icons are prohibited.
+- **Don't** ship a control whose only label is a placeholder. Placeholders are hints, never names.
 - **Anti-pattern test:** screenshot the board — if it could pass for a crypto dashboard template or an AI-startup landing page, it has failed The Morning Briefing.

@@ -32,7 +32,7 @@ export function sortJobs(jobs: Job[], sort: Sort): Job[] {
 }
 
 const COLS: Array<[Sort["col"] | null, string, string]> = [
-  ["fit", "FIT", "w-12"], ["tier", "", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
+  ["fit", "FIT", "w-12"], ["tier", "TIER", "w-[5.5rem]"], ["company", "COMPANY", "w-36"],
   [null, "TITLE", ""], [null, "LOCATION", "w-44"], ["salary", "SALARY", "w-28"],
   ["posted", "POSTED", "w-20"], [null, "STATUS", "w-28"],
 ];
@@ -45,16 +45,27 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
   setSort: (s: Sort) => void;
   onStatus: (key: string, status: Status) => void;
 }) {
-  const header = (col: Sort["col"] | null, label: string, w: string) => (
-    <th key={label + w}
-      className={clsx(
-        "px-2 py-2 text-left font-mono text-[11px] font-medium tracking-[0.08em] text-ink-muted shadow-[inset_0_-1px_0_var(--color-hairline)]",
-        w, col && "cursor-pointer select-none hover:text-ink")}
-      onClick={col ? () => setSort({ col, dir: sort.col === col && sort.dir === "desc" ? "asc" : "desc" }) : undefined}
-    >
-      {label}{col === sort.col ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
-    </th>
-  );
+  const header = (col: Sort["col"] | null, label: string, w: string) => {
+    const active = col != null && col === sort.col;
+    return (
+      <th key={label + w}
+        aria-sort={active ? (sort.dir === "desc" ? "descending" : "ascending") : undefined}
+        className={clsx(
+          "px-2 py-2 text-left font-mono text-[11px] font-medium tracking-[0.08em] text-ink-muted shadow-[inset_0_-1px_0_var(--color-hairline)]",
+          w)}
+      >
+        {col ? (
+          <button
+            type="button"
+            onClick={() => setSort({ col, dir: active && sort.dir === "desc" ? "asc" : "desc" })}
+            className="cursor-pointer select-none rounded-sm tracking-[0.08em] transition hover:text-ink"
+          >
+            {label}{active ? (sort.dir === "desc" ? " ↓" : " ↑") : ""}
+          </button>
+        ) : label}
+      </th>
+    );
+  };
   return (
     <div className="panel overflow-auto">
       <table className="w-full table-fixed border-collapse text-[13px]">
@@ -68,9 +79,11 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
               data-key={j.key}
               onClick={() => onSelect(j.key)}
               className={clsx(
-                "h-[38px] cursor-pointer border-t border-hairline transition hover:bg-sunken/60",
+                "h-[38px] cursor-pointer border-t border-hairline transition hover:bg-sunken",
                 selectedKey === j.key && "bg-teal-wash hover:bg-teal-wash",
-                j.status === "dismissed" && "opacity-45",
+                // Dismissed rows recede via a muted ink, not opacity: fading the
+                // whole row drops real content below the 4.5:1 contrast floor.
+                j.status === "dismissed" && "[&>td]:text-ink-muted [&>td]:font-normal",
               )}
             >
               <td className="px-2"><ScoreDial value={j.fit} /></td>

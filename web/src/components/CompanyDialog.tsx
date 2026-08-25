@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { testCompany } from "../lib/api";
 import type { AdapterName, Company, TestCompanyResult } from "../lib/types";
@@ -96,10 +97,15 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/30" />
-        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[26rem] -translate-x-1/2 -translate-y-1/2 overflow-auto p-5 text-sm shadow-overlay">
-          <Dialog.Title className="mb-3 text-[15px] font-semibold">
-            {initial ? "Edit company" : "Add company"}
-          </Dialog.Title>
+        <Dialog.Content className="panel fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[26rem] -translate-x-1/2 -translate-y-1/2 overflow-auto p-6 text-sm shadow-overlay">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <Dialog.Title className="text-[15px] font-semibold">
+              {initial ? "Edit company" : "Add company"}
+            </Dialog.Title>
+            <Dialog.Close aria-label="Close" className="icon-btn -mr-2 shrink-0">
+              <X className="size-4" aria-hidden="true" />
+            </Dialog.Close>
+          </div>
           <div className="space-y-3">
             {field("Name", name, setName)}
             <div className="flex gap-3">
