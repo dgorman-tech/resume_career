@@ -1,0 +1,33 @@
+# Secrets / personal config (target companies, ntfy topic)
+watcher/config.json
+
+# Generated data — job listings, salary data, personal digests
+watcher/watcher.db
+watcher/watcher.log
+watcher/digests/
+watcher/job-board.html
+watcher/latest-digest.html
+watcher/latest-digest.md
+watcher/weekly-brief-*.md
+
+# Python
+__pycache__/
+*.pyc
+
+# Career HQ app — local artifacts
+.superpowers/
+docs/superpowers/
+node_modules/
+web/dist/
+.env
+
+# Personal career strategy & documents — not for public repo
+Career Intelligence Report.md
+Career North Star.md
+Job Search Strategy.md
+LinkedIn Refresh.md
+Target Rankings.md
+Tooling Roadmap.md
+Daniel Gorman Resume.docx
+Daniel Gorman Resume - Updated.docx
+Daniel Gorman Resume - Updated.pdf
