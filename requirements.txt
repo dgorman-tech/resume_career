@@ -4,3 +4,6 @@ uvicorn[standard]
 google-genai
 httpx
 pytest
+python-docx
+pypdf
+python-multipart

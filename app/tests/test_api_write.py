@@ -9,7 +9,7 @@ CFG = {"app": {"internal_companies": []}, "companies": []}
 @pytest.fixture
 def client(tmp_db):
     db_file = tmp_db.execute("PRAGMA database_list").fetchone()[2]
-    return TestClient(create_app(db_path=db_file, cfg=CFG))
+    return TestClient(create_app(db_path=db_file, cfg=CFG), base_url="http://127.0.0.1")
 
 
 def test_patch_status_and_note(client):

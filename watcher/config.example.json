@@ -1,0 +1,23 @@
+{
+  "ntfy_topic": "",
+  "db_path": "watcher.db",
+  "digest_dir": "digests",
+  "user_agent": "personal-job-watcher/1.0 (manual job search tool; low-frequency polling)",
+  "request_timeout_seconds": 20,
+  "delay_between_requests_seconds": 1.5,
+  "filters": {
+    "title_domain": ["data", "analytics", "engineer", "product"],
+    "title_seniority": ["senior", "manager", "lead", "director", "principal", "staff"],
+    "title_exclude": ["intern", "co-op", "coop", "new grad", "student"],
+    "location_include": ["remote"],
+    "location_exclude": []
+  },
+  "companies": [],
+  "app": {
+    "batch_model": "gemini-flash-latest",
+    "deep_dive_model": "gemini-pro-latest",
+    "batch_scoring": true,
+    "internal_companies": [],
+    "port": 8765
+  }
+}

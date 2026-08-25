@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getProfile, putProfile } from "../lib/api";
+import { extractResume, getProfile, putProfile } from "../lib/api";
 import type { Job } from "../lib/types";
 
 export default function ProfilePage() {
@@ -9,6 +10,22 @@ export default function ProfilePage() {
   const { data } = useQuery({ queryKey: ["profile"], queryFn: getProfile });
   const [resume, setResume] = useState("");
   const [rules, setRules] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return;
+    setExtracting(true);
+    try {
+      setResume(await extractResume(file));
+      toast.info("Resume extracted — review the text below, then Save");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setExtracting(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
 
   useEffect(() => {
     if (data) { setResume(data.resume_text); setRules(data.rules_text); }
@@ -36,9 +53,20 @@ export default function ProfilePage() {
           {staleCount} scored job{staleCount > 1 ? "s were" : " was"} rated against an older profile — re-score from the gear dialog.
         </p>
       )}
-      <h2 className="font-[family-name:var(--font-display)] text-base font-bold">Resume</h2>
-      <p className="mb-2 text-xs text-ink-muted">Plain text; sent with every scoring call.</p>
-      <textarea rows={18} value={resume} onChange={(e) => setResume(e.target.value)} className={box} />
+      <div className="flex items-center gap-3">
+        <h2 className="font-[family-name:var(--font-display)] text-base font-bold">Resume</h2>
+        <button onClick={() => fileInput.current?.click()} disabled={extracting}
+          className="glass flex items-center gap-1 rounded-full px-3 py-1 text-xs disabled:opacity-50">
+          <Upload className="size-3.5" /> {extracting ? "Extracting…" : "Upload file"}
+        </button>
+        <input ref={fileInput} type="file" accept=".docx,.pdf,.txt,.md" aria-label="Upload resume file"
+          onChange={(e) => void onFile(e.target.files?.[0])} className="hidden" />
+      </div>
+      <p className="mb-2 text-xs text-ink-muted">
+        Plain text; sent with every scoring call. Upload a .docx/.pdf/.txt/.md to extract it here.
+      </p>
+      <textarea rows={18} aria-label="Resume" value={resume}
+        onChange={(e) => setResume(e.target.value)} className={box} />
       <h2 className="mt-6 font-[family-name:var(--font-display)] text-base font-bold">Rules & preferences</h2>
       <p className="mb-2 text-xs text-ink-muted">Comp targets, role shape, cost-center test, flexibility, internal lens.</p>
       <textarea rows={10} value={rules} onChange={(e) => setRules(e.target.value)} className={box} />

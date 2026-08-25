@@ -1,4 +1,5 @@
-import type { Health, Job, Profile, Stats, Status } from "./types";
+import type { Company, Health, Job, Profile, Settings, Stats, Status,
+              TestCompanyResult } from "./types";
 
 interface Envelope<T> {
   ok: boolean;
@@ -35,6 +36,22 @@ export const scoreUnscored = (limit: number) =>
   });
 export const getScoringStatus = () =>
   call<{ running: boolean; done: number; total: number; errors: number }>("/api/scoring-status");
+
+export const getSettings = () => call<Settings>("/api/settings");
+export const putSettings = (s: Settings) =>
+  call<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) });
+export const testCompany = (c: Company) =>
+  call<TestCompanyResult>("/api/settings/test-company", { method: "POST", body: JSON.stringify(c) });
+
+export async function extractResume(file: File): Promise<string> {
+  // no JSON content-type here: the browser must set the multipart boundary itself
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch("/api/profile/extract", { method: "POST", body: fd });
+  const body = (await res.json()) as Envelope<{ text: string }>;
+  if (!res.ok || !body.ok) throw new Error(body.error ?? `request failed: ${res.status}`);
+  return body.data.text;
+}
 
 export async function deepDive(key: string, onChunk: (text: string) => void): Promise<void> {
   const res = await fetch(`/api/jobs/${encodeURIComponent(key)}/deep-dive`, { method: "POST" });

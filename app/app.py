@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import db as appdb
 from app import scorer, jd_fetch
@@ -22,6 +23,8 @@ CONFIG_PATH = appdb.REPO_ROOT / "watcher" / "config.json"
 VALID_STATUSES = {"new", "interested", "dismissed", "applied"}
 
 BACKFILL_DELAY = 1.5
+# slightly above the resume-upload cap so multipart framing overhead still fits
+MAX_BODY_BYTES = 11 * 1024 * 1024
 _backfill = {"running": False, "done": 0, "total": 0, "errors": 0}
 _backfill_lock = threading.Lock()
 
@@ -35,10 +38,6 @@ class JobStatePatch(BaseModel):
 class ProfileBody(BaseModel):
     resume_text: str
     rules_text: str
-
-
-def load_cfg():
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 def ok(data):
@@ -83,13 +82,26 @@ WHERE j.matched = 1 AND j.closed_at IS NULL
 """
 
 
-def create_app(db_path=None, cfg=None):
+def create_app(db_path=None, cfg=None, config_path=None):
     app = FastAPI(title="Career HQ")
+    # reject non-loopback Host headers so DNS rebinding can't reach the API
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
+
+    @app.middleware("http")
+    async def limit_body_size(request, call_next):
+        length = request.headers.get("content-length", "")
+        if length.isdigit() and int(length) > MAX_BODY_BYTES:
+            return err("request too large", 413)
+        return await call_next(request)
     app.state.db_path = db_path
     app.state.cfg = cfg
+    app.state.config_path = Path(config_path) if config_path else CONFIG_PATH
 
     def get_cfg():
-        return app.state.cfg if app.state.cfg is not None else load_cfg()
+        if app.state.cfg is not None:
+            return app.state.cfg
+        from app.settings import read_base_cfg
+        return read_base_cfg(app.state.config_path)
 
     def get_conn():
         conn = appdb.get_conn(app.state.db_path)
@@ -282,6 +294,11 @@ def create_app(db_path=None, cfg=None):
     def scoring_status():
         with _backfill_lock:
             return ok(dict(_backfill))
+
+    from app import extract as extract_api
+    from app import settings as settings_api
+    app.include_router(settings_api.router)
+    app.include_router(extract_api.router)
 
     dist = appdb.REPO_ROOT / "web" / "dist"
     if dist.exists():

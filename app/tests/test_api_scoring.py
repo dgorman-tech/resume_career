@@ -13,7 +13,7 @@ CFG = {"app": {"internal_companies": [], "batch_model": "m-flash", "deep_dive_mo
 @pytest.fixture
 def client(tmp_db):
     db_file = tmp_db.execute("PRAGMA database_list").fetchone()[2]
-    return TestClient(create_app(db_path=db_file, cfg=CFG))
+    return TestClient(create_app(db_path=db_file, cfg=CFG), base_url="http://127.0.0.1")
 
 
 def _seed_profile(conn):

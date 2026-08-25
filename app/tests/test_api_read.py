@@ -13,7 +13,13 @@ def client(tmp_db, tmp_path, monkeypatch):
     # create_app opens its own connection to the same file the tmp_db fixture made
     db_file = tmp_db.execute("PRAGMA database_list").fetchone()[2]
     app = create_app(db_path=db_file, cfg=CFG)
-    return TestClient(app)
+    return TestClient(app, base_url="http://127.0.0.1")
+
+
+def test_rejects_spoofed_host_header(client):
+    # DNS-rebinding defence: only loopback hostnames may address this API
+    resp = client.get("/api/jobs", headers={"Host": "evil.example"})
+    assert resp.status_code == 400
 
 
 def test_jobs_shape_and_defaults(client):

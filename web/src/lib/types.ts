@@ -50,6 +50,61 @@ export interface Profile {
   updated_at: string | null;
 }
 
+export interface SlugCompany {
+  name: string;
+  tier: number;
+  adapter: "ashby" | "lever" | "workable";
+  slug: string;
+}
+
+export interface WorkdayCompany {
+  name: string;
+  tier: number;
+  adapter: "workday";
+  tenant: string;
+  wd: string;
+  site: string;
+  search_terms: string[];
+  max_per_term?: number;
+}
+
+export interface SuccessFactorsCompany {
+  name: string;
+  tier: number;
+  adapter: "successfactors_rmk";
+  host: string;
+  feeds: string[];
+  location?: string;
+}
+
+export type Company = SlugCompany | WorkdayCompany | SuccessFactorsCompany;
+export type AdapterName = Company["adapter"];
+
+export interface Filters {
+  title_domain: string[];
+  title_seniority: string[];
+  title_exclude: string[];
+  location_include: string[];
+  location_exclude: string[];
+}
+
+export interface Settings {
+  ntfy_topic: string;
+  filters: Filters;
+  companies: Company[];
+  app: {
+    batch_model: string;
+    deep_dive_model: string;
+    batch_scoring: boolean;
+    internal_companies: string[];
+  };
+}
+
+export interface TestCompanyResult {
+  jobs_found: number;
+  sample_titles: string[];
+}
+
 export interface Health {
   key_present: boolean;
   batch_model: string;
