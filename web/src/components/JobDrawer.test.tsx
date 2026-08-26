@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { makeJob } from "../test-utils/job";
 import type { Job } from "../lib/types";
@@ -187,5 +187,46 @@ describe("JobDrawer follow-up", () => {
     const onFollowUpHandled = vi.fn();
     renderDrawer(JOB_A, { followUpRequested: true, onFollowUpHandled });
     await waitFor(() => expect(onFollowUpHandled).toHaveBeenCalled());
+  });
+});
+
+describe("JobDrawer layout", () => {
+  // The drawer is portalled now that Radix owns the modal semantics, so it lands
+  // in document.body rather than inside the render container.
+  const aside = () => document.querySelector("aside")!;
+
+  // The panel slides in by a percentage of its own width, so a width change can no
+  // longer strand it off-screen the way a hard-coded 480px translate could.
+  it("settles the panel flush against the right edge rather than parked off-screen", async () => {
+    renderDrawer(BASE);
+    expect(aside().style.transform).toContain("100%");
+    await act(() => new Promise((r) => setTimeout(r, 600)));
+    expect(aside().style.transform).toBe("none");
+  });
+
+  // Closing must take the whole layer with it. An exit that finishes without
+  // unmounting leaves the scrim over the board, eating every click on it.
+  it("takes its scrim with it when it closes, leaving nothing over the board", async () => {
+    const { rerenderWith } = renderDrawer(BASE);
+    expect(document.querySelector("aside")).toBeTruthy();
+
+    rerenderWith(BASE, { open: false });
+
+    await act(() => new Promise((r) => setTimeout(r, 600)));
+    expect(document.querySelector("aside")).toBeNull();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // The deep dive runs to six sections; if it scrolls inside its own box the drawer
+  // shows a sliver of it, and if the header scrolls away the triage buttons go with it.
+  it("scrolls the body only, keeping the header and its status actions pinned", () => {
+    renderDrawer(BASE);
+    const panel = aside();
+    const header = panel.querySelector("header")!;
+
+    expect(header.className).toContain("shrink-0");
+    expect(screen.getByRole("button", { name: "Interested" }).closest("header")).toBe(header);
+    expect(panel.className).toContain("overflow-hidden");
+    expect(panel.querySelectorAll(".overflow-y-auto")).toHaveLength(1);
   });
 });

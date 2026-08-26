@@ -219,8 +219,18 @@ Refined and restrained: controls whisper until needed. Color arrives on hover, f
 - `kbd` renders as a physical key everywhere it appears: Sunken Well fill, 1px Hairline border, 4px radius, mono 11px. Never style keyboard hints as plain inline text.
 
 ### Rendered Markdown
-- LLM output (deep dives) renders inside `.md-body`. Tailwind's reset strips list markers, list indentation, paragraph margins, and heading weight, and no typography plugin is installed, so the container restores them explicitly: disc/decimal markers at 1.25rem indent, 0.75rem block rhythm, 14px semibold headings, teal underlined links, Sunken Well inline code.
+- LLM output (deep dives) renders inside `.md-body`. Tailwind's reset strips list markers, list indentation, paragraph margins, and heading weight, and no typography plugin is installed, so the container restores them explicitly: disc/decimal markers at 1.25rem indent, 0.75rem block rhythm, teal underlined links, Sunken Well inline code.
+- **Type is set by the container, never by a utility.** `.md-body` owns its own font-size (0.875rem) and line-height (1.65). A `text-sm` class on the wrapper sits in Tailwind's utilities layer, wins the cascade over `@layer components`, and silently resets long-form prose to a 1.43 line-height.
+- **Headings section by voice, not by size.** A deep dive arrives as six H1 sections, so H1 renders as the same tracked-uppercase mono eyebrow that heads WHY / GAPS / ANGLE (11px, Ink Muted) above a 1px Hairline rule, with 24px of air above and 8px below; the first one drops its rule. H2/H3 stay Inter 600 at 0.875rem / 0.8125rem. Scaling six headings up instead would have set the whole panel shouting; the rule does the sectioning.
+- **No nested scroller.** Rendered markdown flows at its natural height inside the drawer's own scroll region, capped to a 70ch measure. A `max-height` plus `overflow-auto` on the markdown traps the wheel between two scroll contexts and hides most of the analysis.
 - **The Never-Raw-Markdown Rule.** Markdown rendered without `.md-body` is a defect, not a style preference. Unstyled output reads as one undifferentiated wall of text, which is exactly how a serious analysis stops looking serious.
+
+### Detail Drawer (job detail)
+- **Width:** `min(46rem, 100vw)` — 736px where there is room, full-bleed below that. It holds a long-form analysis, so it is a reading surface, not a sidebar.
+- **Three bands, one scroll.** A `shrink-0` header (title, company line, score dial and subscores, the three status actions and the star), a `flex-1 overflow-y-auto` body (WHY / GAPS / ANGLE, note, deep dive), and a `shrink-0` footer of keyboard hints. Only the middle band scrolls, so triage never scrolls out of reach behind a six-section deep dive.
+- **Padding:** 24px, opening to 40px at `sm`. Prose inside caps at 70ch regardless of panel width.
+- The footer's keyboard hints are `hidden sm:flex`; they are chrome a touch user cannot act on.
+- **Motion:** slides in by `x: "100%"` over 240ms `ease-out-quart` — a percentage, so widening the panel can never strand it off-screen. The global `prefers-reduced-motion` CSS rule cannot reach a framer-motion inline transform, so the drawer reads the preference in JS and cross-fades instead.
 
 ### Navigation (header tabs)
 - **Style:** Label-adjacent Inter 600 at 0.875rem in a full-radius pill row. Inactive = Ink Muted text, transparent; hover = Briefing Ink; active = Teal Wash fill with Harbor Teal Deep text. The header itself is Morning Paper with a Hairline bottom border — no glass, no blur, no gradient logo text. The wordmark is Briefing Ink with a Harbor Teal glyph.

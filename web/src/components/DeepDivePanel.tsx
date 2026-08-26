@@ -51,26 +51,34 @@ export function DeepDivePanel({ jobKey, hasExisting, autoStart, onStarted }: {
   }, [autoStart, jobKey]);
 
   return (
-    <section className="mt-4">
-      <div className="mb-2 flex items-center justify-between">
+    <section>
+      <div className="flex items-center justify-between gap-3">
         <h3 className="font-mono text-[11px] font-medium tracking-[0.08em] text-ink-muted">DEEP DIVE</h3>
         <button
           onClick={() => void run()}
           disabled={phase === "streaming"}
-          className="flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1 text-xs font-semibold text-ink transition hover:bg-sunken disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1 text-xs font-semibold text-ink transition hover:bg-sunken disabled:text-ink-muted"
         >
-          <Microscope className="size-3.5" />
+          <Microscope className="size-3.5" aria-hidden="true" />
           {phase === "streaming" ? "Analyzing…" : hasExisting || phase === "done" ? "Re-run" : "Deep dive"}
         </button>
       </div>
-      <p className="mb-2 max-w-[52ch] text-[11px] text-ink-muted">{DEEP_DIVE_DISCLOSURE}</p>
+      <p className="mt-2 max-w-[62ch] text-[11px] text-ink-muted">{DEEP_DIVE_DISCLOSURE}</p>
+      {phase === "streaming" && !text && (
+        <p aria-live="polite" className="mt-3 text-sm text-ink-muted">
+          Reading the posting against your profile…
+        </p>
+      )}
       {text && (
-        <div className="md-body max-h-96 overflow-auto rounded-md border border-hairline bg-paper p-3 text-[13px] leading-relaxed">
+        // No inner scroller: a scroll region nested inside the drawer's own scroll
+        // traps the wheel and hides most of a six-section analysis behind 384px.
+        // The analysis flows as a document and the drawer scrolls it.
+        <div className="md-body mt-3 max-w-[70ch] text-ink">
           <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{text}</ReactMarkdown>
         </div>
       )}
       {phase === "error" && (
-        <p className="mt-2 text-xs text-ink-muted">
+        <p className="mt-3 text-sm text-ink-muted">
           {text ? "The stream stopped early; the partial analysis is kept above." : "The deep dive couldn't run."}{" "}
           <button onClick={() => void run()} className="rounded-sm font-semibold text-teal underline">
             Try again
