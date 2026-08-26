@@ -28,8 +28,25 @@ export function sortJobs(jobs: Job[], sort: Sort, scores: Map<string, number | n
     const av = val(a), bv = val(b);
     const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
     const primary = sort.dir === "asc" ? cmp : -cmp;
-    return primary !== 0 ? primary : a.tier - b.tier;
+    if (primary !== 0) return primary;
+    // a hard-requirement conflict breaks ties downward: it demotes a job among
+    // its equals, it never outranks a genuinely better score
+    const conflict = Number(a.conflicts.length > 0) - Number(b.conflicts.length > 0);
+    return conflict !== 0 ? conflict : a.tier - b.tier;
   });
+}
+
+/** The range to show, and whether it came from the description rather than the
+ *  board feed. A JD-sourced number is always labelled as such. */
+export function salaryForDisplay(job: Job): { text: string; fromJd: boolean } {
+  if (job.salary_min != null || job.salary_max != null) {
+    return { text: fmtSalary(job.salary_min, job.salary_max), fromJd: false };
+  }
+  const f = job.facts;
+  if (f && (f.salary_min_jd != null || f.salary_max_jd != null)) {
+    return { text: fmtSalary(f.salary_min_jd, f.salary_max_jd), fromJd: true };
+  }
+  return { text: fmtSalary(null, null), fromJd: false };
 }
 
 export interface Col {
@@ -127,11 +144,25 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
         <span className="flex items-baseline">
           <span className="truncate">{j.title}</span>
           <AttentionChip job={j} today={today} />
+          {j.conflicts.length > 0 && (
+            <span title={j.conflicts.map((c) => c.message).join("; ")}
+              className="ml-2 shrink-0 font-mono text-[10px] tracking-[0.08em] text-amber uppercase">
+              conflict
+            </span>
+          )}
         </span>
       </td>
       <td className={clsx("truncate px-2 text-ink-muted", NARROW_HIDDEN)}>{j.location}</td>
       <td className={clsx("px-2 font-mono text-xs text-ink", NARROW_HIDDEN)}>
-        {fmtSalary(j.salary_min, j.salary_max)}
+        {(() => {
+          const { text, fromJd } = salaryForDisplay(j);
+          return fromJd ? (
+            <span title="Range from the job description, not the job board"
+              className="border-b border-dotted border-ink-muted">
+              {text}
+            </span>
+          ) : text;
+        })()}
       </td>
       <td className={clsx("px-2 font-mono text-xs text-ink-muted", NARROW_HIDDEN)}>{fmtAge(j.first_seen)}</td>
       <td className="px-2"><StatusPill status={j.status} onChange={(s) => onStatus(j.key, s)} /></td>

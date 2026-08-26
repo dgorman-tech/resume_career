@@ -9,6 +9,7 @@ import { dismissLabel } from "../lib/dismiss";
 import { fmtSalary } from "../lib/format";
 import { Badges } from "./Badges";
 import { DeepDivePanel } from "./DeepDivePanel";
+import { JobFactsPanel } from "./JobFactsPanel";
 import { ScoreDial } from "./ScoreDial";
 
 export interface NextActionPatch {
@@ -25,7 +26,7 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNextAction, onScoreNow, deepDiveRequested, onDeepDiveHandled, followUpRequested, onFollowUpHandled, score, dimensions }: {
+export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNextAction, onScoreNow, onExtractFacts, extractingFacts, deepDiveRequested, onDeepDiveHandled, followUpRequested, onFollowUpHandled, score, dimensions }: {
   job: Job | null;
   open: boolean;
   onClose: () => void;
@@ -34,6 +35,8 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
   onNote: (key: string, note: string) => void;
   onNextAction: (key: string, patch: NextActionPatch) => void;
   onScoreNow: (key: string) => void;
+  onExtractFacts: (key: string) => void;
+  extractingFacts: boolean;
   deepDiveRequested: boolean;
   onDeepDiveHandled: () => void;
   followUpRequested: boolean;
@@ -190,6 +193,8 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
             {job.why && <Block label="WHY">{job.why}</Block>}
             {job.gaps && <Block label="GAPS">{job.gaps}</Block>}
             {job.angle && <Block label="ANGLE">{job.angle}</Block>}
+
+            <JobFactsPanel job={job} onExtract={onExtractFacts} extracting={extractingFacts} />
 
             <DeepDivePanel jobKey={job.key} hasExisting={job.has_deep_dive}
               autoStart={deepDiveRequested} onStarted={onDeepDiveHandled} />

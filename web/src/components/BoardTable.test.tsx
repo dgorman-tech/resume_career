@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { makeJob } from "../test-utils/job";
+import { makeFacts, makeJob } from "../test-utils/job";
 import type { Job } from "../lib/types";
 import { BoardTable, COLS, DEFAULT_SORT, sortJobs } from "./BoardTable";
 
@@ -56,6 +56,56 @@ describe("needs-attention grouping", () => {
   it("counts the jobs in the group so the size is visible without counting rows", () => {
     renderBoard([j("a", 1, { next_action_at: "2026-08-01" }), j("b", 1, { next_action_at: TODAY })]);
     expect(screen.getByText(/needs attention \(2\)/i)).toBeInTheDocument();
+  });
+});
+
+describe("conflict flags", () => {
+  const conflicted = (key: string, over: Partial<Job> = {}) =>
+    j(key, 1, { conflicts: [{ field: "office_days", message: "4 office days/week vs your limit of 2", quote: "4 days onsite" }], ...over });
+
+  it("labels a conflicting row rather than hiding it", () => {
+    renderBoard([conflicted("a")]);
+    const row = screen.getAllByRole("row").find((r) => r.getAttribute("data-key") === "a")!;
+    expect(within(row).getByText(/conflict/i)).toBeInTheDocument();
+  });
+
+  it("sorts a conflicting job below an equal one, without removing it", () => {
+    const scores = new Map<string, number | null>([["a", 80], ["b", 80]]);
+    const out = sortJobs([conflicted("a"), j("b")], DEFAULT_SORT, scores);
+    expect(out.map((x) => x.key)).toEqual(["b", "a"]);
+  });
+
+  it("does not let a conflict outrank a genuinely better score", () => {
+    const scores = new Map<string, number | null>([["a", 95], ["b", 40]]);
+    const out = sortJobs([conflicted("a"), j("b")], DEFAULT_SORT, scores);
+    expect(out.map((x) => x.key)).toEqual(["a", "b"]);
+  });
+
+  it("leaves an unflagged row unlabelled", () => {
+    renderBoard([j("a")]);
+    expect(screen.queryByText(/conflict/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("JD-sourced salary", () => {
+  it("falls back to the range stated in the description, marked as such", () => {
+    renderBoard([j("a", 1, {
+      salary_min: null, salary_max: null,
+      facts: makeFacts({ salary_min_jd: 170000, salary_max_jd: 210000 }),
+    })]);
+    const row = screen.getAllByRole("row").find((r) => r.getAttribute("data-key") === "a")!;
+    expect(within(row).getByText(/170K/)).toBeInTheDocument();
+    expect(within(row).getByTitle(/from the job description/i)).toBeInTheDocument();
+  });
+
+  it("prefers the posted range when the board already has one", () => {
+    renderBoard([j("a", 1, {
+      salary_min: 150000, salary_max: 160000,
+      facts: makeFacts({ salary_min_jd: 170000, salary_max_jd: 210000 }),
+    })]);
+    const row = screen.getAllByRole("row").find((r) => r.getAttribute("data-key") === "a")!;
+    expect(within(row).getByText(/150K/)).toBeInTheDocument();
+    expect(within(row).queryByTitle(/from the job description/i)).not.toBeInTheDocument();
   });
 });
 

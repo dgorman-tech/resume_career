@@ -10,7 +10,7 @@ import { StatsBar } from "../components/StatsBar";
 import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
-import { getDimensions, scoreJob } from "../lib/api";
+import { extractFacts, getDimensions, scoreJob } from "../lib/api";
 import type { DismissReason } from "../lib/dismiss";
 import { attentionReason, orderByAttention, todayISO } from "../lib/nextAction";
 import { scoreMap } from "../lib/score";
@@ -23,6 +23,13 @@ export function applyFilters(jobs: Job[], f: Filters, today: string): Job[] {
     if (f.tier != null && j.tier !== f.tier) return false;
     if (f.internalOnly && !j.is_internal) return false;
     if (f.unscoredOnly && j.fit != null) return false;
+    // Facets read JD facts, so a job whose description was never read cannot
+    // satisfy one. Excluding it beats guessing it qualifies.
+    if (f.remote != null && j.facts?.remote_policy !== f.remote) return false;
+    if (f.maxOfficeDays != null
+        && (j.facts?.office_days == null || j.facts.office_days > f.maxOfficeDays)) return false;
+    if (f.jdSalaryOnly
+        && j.facts?.salary_min_jd == null && j.facts?.salary_max_jd == null) return false;
     // The status chips are a triage lens, and the board opens on 'unreviewed'.
     // Anything actually demanding action today has to come through that lens,
     // or "nothing slips" only holds for people who remember to click All.
@@ -96,6 +103,18 @@ export default function Board() {
     });
   };
 
+  const [extractingKey, setExtractingKey] = useState<string | null>(null);
+  const onExtractFacts = (key: string) => {
+    setExtractingKey(key);
+    toast.promise(
+      extractFacts(key)
+        .then(() => qc.invalidateQueries({ queryKey: ["jobs"] }))
+        .finally(() => setExtractingKey(null)),
+      { loading: "Reading the description…", success: "Facts extracted",
+        error: (e) => (e as Error).message },
+    );
+  };
+
   useKeyboard({
     enabled: true,
     keys: visible.map((j) => j.key),
@@ -165,6 +184,8 @@ export default function Board() {
         onNote={(key, note) => patch(key, { note })}
         onNextAction={(key, p) => patch(key, p)}
         onScoreNow={onScoreNow}
+        onExtractFacts={onExtractFacts}
+        extractingFacts={extractingKey === selected?.key}
         deepDiveRequested={deepDiveRequested}
         onDeepDiveHandled={() => setDeepDiveRequested(false)}
         followUpRequested={followUpRequested}

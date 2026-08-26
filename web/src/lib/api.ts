@@ -1,5 +1,5 @@
-import type { Company, DimensionEdit, DimensionsPayload, Health, Job, MinLevel, Profile, Settings,
-              Stats, Status, TestCompanyResult } from "./types";
+import type { Company, DimensionEdit, DimensionsPayload, Health, Job, JobFacts, MinLevel, Profile,
+              Settings, Stats, Status, TestCompanyResult } from "./types";
 
 interface Envelope<T> {
   ok: boolean;
@@ -33,6 +33,8 @@ export const patchJob = (
     next_action_at: string; next_action_note: string; dismiss_reason: string;
   }>,
 ) => call<unknown>(`/api/jobs/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const extractFacts = (key: string) =>
+  call<JobFacts>(`/api/jobs/${encodeURIComponent(key)}/extract-facts`, { method: "POST" });
 export const scoreJob = (key: string) =>
   call<unknown>(`/api/jobs/${encodeURIComponent(key)}/score`, { method: "POST" });
 export const scoreUnscored = (limit: number) =>

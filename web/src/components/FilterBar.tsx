@@ -1,4 +1,4 @@
-import type { Status } from "../lib/types";
+import type { RemotePolicy, Status } from "../lib/types";
 import { clsx } from "clsx";
 
 export interface Filters {
@@ -7,9 +7,20 @@ export interface Filters {
   tier: number | null;
   internalOnly: boolean;
   unscoredOnly: boolean;
+  /** JD-fact facets. Each narrows to jobs whose description was actually read. */
+  remote: RemotePolicy | null;
+  maxOfficeDays: number | null;
+  jdSalaryOnly: boolean;
 }
 
-export const DEFAULT_FILTERS: Filters = { q: "", status: "unreviewed", tier: null, internalOnly: false, unscoredOnly: false };
+export const DEFAULT_FILTERS: Filters = {
+  q: "", status: "unreviewed", tier: null, internalOnly: false, unscoredOnly: false,
+  remote: null, maxOfficeDays: null, jdSalaryOnly: false,
+};
+
+const REMOTE_OPTIONS: Array<[RemotePolicy | "", string]> = [
+  ["", "Any location"], ["remote", "Remote"], ["hybrid", "Hybrid"], ["onsite", "Onsite"],
+];
 
 const STATUS_CHIPS: Array<[Filters["status"], string]> = [
   ["all", "All"], ["unreviewed", "Unreviewed"], ["interested", "Interested"],
@@ -49,6 +60,38 @@ export function FilterBar({ filters, setFilters, count, searchRef, tune }: {
       <button aria-pressed={filters.unscoredOnly} className={chip(filters.unscoredOnly)}
         onClick={() => setFilters({ ...filters, unscoredOnly: !filters.unscoredOnly })}>
         Unscored
+      </button>
+
+      <select
+        aria-label="Location"
+        value={filters.remote ?? ""}
+        onChange={(e) => setFilters({ ...filters, remote: (e.target.value || null) as Filters["remote"] })}
+        className="field px-2 py-1 text-xs"
+      >
+        {REMOTE_OPTIONS.map(([value, label]) => (
+          <option key={value} value={value}>{label}</option>
+        ))}
+      </select>
+
+      <select
+        aria-label="Office days"
+        value={filters.maxOfficeDays ?? ""}
+        onChange={(e) => setFilters({
+          ...filters,
+          // "" means no ceiling; 0 is a real ceiling and must survive the cast
+          maxOfficeDays: e.target.value === "" ? null : Number(e.target.value),
+        })}
+        className="field px-2 py-1 text-xs"
+      >
+        <option value="">Any office days</option>
+        {[0, 1, 2, 3, 4].map((n) => (
+          <option key={n} value={n}>{n === 0 ? "No office days" : `${n} or fewer`}</option>
+        ))}
+      </select>
+
+      <button aria-pressed={filters.jdSalaryOnly} className={chip(filters.jdSalaryOnly)}
+        onClick={() => setFilters({ ...filters, jdSalaryOnly: !filters.jdSalaryOnly })}>
+        JD salary
       </button>
       {tune}
       <span aria-live="polite" className="ml-auto text-xs text-ink-muted">{count} shown</span>

@@ -24,6 +24,34 @@ export interface DimensionEdit {
   archived: boolean;
 }
 
+export type RemotePolicy = "remote" | "hybrid" | "onsite";
+
+/** Facts an LLM read out of the JD. Every non-null field has a verbatim quote
+ *  in `evidence`; a fact whose quote wasn't in the JD was never stored. */
+export interface JobFacts {
+  years_min: number | null;
+  level: string | null;
+  office_days: number | null;
+  remote_policy: RemotePolicy | null;
+  must_haves: string[];
+  salary_min_jd: number | null;
+  salary_max_jd: number | null;
+  apply_deadline: string | null;
+  visa_or_clearance: string | null;
+  /** field → the quote it came from; must_haves maps to one quote per entry */
+  evidence: Record<string, string | string[]>;
+  confidence: number;
+  extracted_at: string | null;
+}
+
+/** A JD fact that contradicts a profile hard requirement. Warns and demotes,
+ *  never dismisses. */
+export interface Conflict {
+  field: string;
+  message: string;
+  quote: string | null;
+}
+
 export interface Job {
   key: string;
   company: string;
@@ -57,6 +85,8 @@ export interface Job {
   scored_at: string | null;
   stale: boolean;
   has_deep_dive: boolean;
+  facts: JobFacts | null;
+  conflicts: Conflict[];
 }
 
 export interface Stats {

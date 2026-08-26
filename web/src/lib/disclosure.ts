@@ -12,5 +12,8 @@ export const SCORING_DISCLOSURE =
 export const DEEP_DIVE_DISCLOSURE =
   "Deep dive sends your profile, rubric, this job's description, and comparable salary rows to Gemini.";
 
+export const FACTS_DISCLOSURE =
+  "Sends this job's description to Gemini and keeps the sentence behind every fact it reports.";
+
 export const BULK_SCORING_DISCLOSURE =
   "Sends your profile, rubric, and each job's description to Gemini, one job at a time.";
