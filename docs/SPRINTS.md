@@ -1,9 +1,17 @@
 # Career HQ — Sprint Plan
 
 Seven sprints, each sized for one focused Claude Code session and independently shippable.
-Order matters: each sprint's data feeds the ones after it. Every sprint ends the same way:
-tests pass (`pytest` + `npm test` in `web/`), `python scripts/privacy_scan.py` is clean,
-and the change is a single reviewable PR.
+Sprint numbers are stable identifiers; run them in the execution order below. Every sprint
+ends the same way: tests pass (`pytest` + `npm test` in `web/`), `python scripts/privacy_scan.py`
+is clean, and the change is a single reviewable PR. (`web/` has no `test` script today;
+wiring `"test": "vitest run"` is Sprint 1's first task — vitest, jsdom, and testing-library
+are already devDependencies.)
+
+**Execution order (revised 2026-08-25):** 1 → 2 → 4 → 5 → 6 → 7 → 3. Sprint 3 (supply)
+moved behind the Application Kit: the board already has substantial supply, and the binding
+constraint is converting promising roles into applications, not finding more of them. Run
+Sprint 3 earlier only if the watchlist is demonstrably too thin to keep the pipeline full.
+Data dependencies survive this order: 2 and 4 feed 5–7; 3 feeds nothing downstream.
 
 **Standing constraints for every sprint** (repeat these to Claude verbatim):
 
@@ -17,6 +25,11 @@ and the change is a single reviewable PR.
   gamification, honest states.
 - All Gemini calls go through `app/scorer.py`'s `_call_llm` / `_stream_llm`. Do not add a
   third SDK touchpoint.
+- Lightweight AI provenance on every LLM write (this is about trust and reproducibility,
+  not analytics — the cost ledger stays cut): record the model, a prompt version, and
+  hashes of the inputs (profile/rubric/JD as applicable); every UI affordance that can
+  trigger an LLM call carries a plain one-line disclosure of what gets sent to Gemini;
+  extracted facts and coverage claims cite verbatim source quotes, machine-checked.
 
 ---
 
@@ -29,6 +42,9 @@ new machinery.
 
 **Scope**
 
+- Delivery gate first: add `"test": "vitest run"` to `web/package.json` so the standing
+  `npm test` gate actually runs (vitest, jsdom, and testing-library are already installed;
+  no config changes expected).
 - Schema: add `next_action_at TEXT` and `next_action_note TEXT` to `job_state`
   (additive column migration, same pattern as `PROFILE_ADDED_COLUMNS`).
 - Watcher: after `upsert_jobs`, join newly closed keys against
@@ -38,6 +54,21 @@ new machinery.
 - UI: a due/overdue chip on board rows; overdue-and-today items sort to a "Needs attention"
   group at the top of the board (or a dedicated filter in `FilterBar`); a keyboard shortcut
   in the existing `useKeyboard` layer to set a follow-up date from the drawer.
+- Stale-score repair: today the UI flags stale scores but `/api/score-unscored` selects
+  only never-scored jobs (`s.key IS NULL`), so a stale score can never be repaired. Add
+  "Re-score stale shortlisted roles": an endpoint (sibling of or extension to
+  `score-unscored`, reusing `_run_backfill` and its limit/pacing) scoped to open jobs that
+  are stale AND (`status IN ('interested','applied')` OR starred). The UI affordance lives
+  next to the existing backfill button in the health/scoring dialog, shows the exact count,
+  and requires explicit confirmation before any call is made.
+- Drawer accessibility: `JobDrawer` is a hand-rolled `motion.aside` overlay with no dialog
+  semantics. Give it `role="dialog"`/`aria-modal`, trap focus while open, and return focus
+  to the triggering row on close. `@radix-ui/react-dialog` is already a dependency —
+  reusing it (keeping the motion styling) gets trapping and return for free.
+- Narrow screens: no card stack (stays cut), but the fixed-layout board table hides key
+  content at 390px. Add a column-priority treatment — collapse or drop low-priority columns
+  at narrow widths so title, company, status, and fit stay readable; the page body must
+  never scroll horizontally.
 
 **Acceptance**
 
@@ -46,14 +77,21 @@ new machinery.
 - Overdue next actions are visible without scrolling on app open.
 - Closed-but-in-pipeline jobs remain visible in the app (they must not vanish from
   `JOBS_SQL` just because they closed).
+- `npm test` in `web/` runs the vitest suite and passes.
+- The stale re-score never fires without confirmation and touches only the bounded
+  shortlisted set (unit-test the selection query).
+- Drawer focus is trapped while open and returns to the triggering row on close
+  (testing-library test).
+- At 390px the board shows title, company, status, and fit without horizontal scrolling.
 
 **Out of scope:** full CRM stages, contacts, interview journal.
 
 **Prompt to hand Claude:**
 
 > Read CLAUDE.md, PRODUCT.md, and docs/SPRINTS.md Sprint 1, then implement it exactly as
-> scoped. Standing constraints apply. Write tests for the watcher join and the API changes;
-> run the full test suites and the privacy scan before committing.
+> scoped. Standing constraints apply. Wire the `npm test` script first. Write tests for the
+> watcher join, the API changes (including the stale re-score selection), and the drawer
+> focus behavior; run the full test suites and the privacy scan before committing.
 
 ---
 
@@ -71,12 +109,17 @@ edits measurable later. Both are tiny.
 - UI: pressing the dismiss shortcut opens a one-tap reason chip row (keyboard 1–6) before
   confirming; reason shows in the job drawer. Dismissing must stay a ≤2-keystroke flow.
 - Schema: new `score_history` table `(key, fit, subscores, why, gaps, angle, lens, model,
-  scored_at)` — append-only. `score_job` in `app/scorer.py` inserts a history row alongside
-  the existing `job_scores` upsert. No UI for history yet.
+  prompt_version, profile_hash, rubric_hash, jd_hash, scored_at)` — append-only. `score_job`
+  in `app/scorer.py` inserts a history row alongside the existing `job_scores` upsert,
+  hashing the exact profile/rubric/JD text it sent. No UI for history yet.
+- Disclosure: every affordance that can start a scoring call (score-now, backfill, stale
+  re-score) carries one plain line: "Scoring sends your profile, rubric, and this job's
+  description to Gemini."
 
 **Acceptance**
 
 - Dismissing records a reason; re-scoring a job leaves prior history rows intact.
+- Every new history row records model, prompt version, and input hashes.
 - Triage speed unchanged: dismiss-with-reason works entirely from the keyboard.
 
 **Out of scope:** any LLM use of the reasons (that's Sprint 7), history charts.
@@ -94,6 +137,11 @@ edits measurable later. Both are tiny.
 **Why:** the hand-curated company list is the ceiling on the whole system. Greenhouse is
 the most common public ATS not yet covered, and "paste any job URL, get the company
 watched" removes the friction that keeps the list small.
+
+**When:** deferred to last (see Execution order). The board's supply is currently adequate;
+the binding constraint is converting promising roles into applications. This sprint stays
+fully specified and ready — pull it forward only if the watchlist is demonstrably too thin
+to keep the pipeline full.
 
 **Scope**
 
@@ -134,12 +182,18 @@ hard-requirement flags. Sprints 5–7 all read from this table.
 - Schema: new `job_facts` table:
   `(key PK REFERENCES jobs(key), years_min INTEGER, level TEXT, office_days INTEGER,
   remote_policy TEXT, must_haves TEXT /*JSON array*/, salary_min_jd REAL, salary_max_jd REAL,
-  apply_deadline TEXT, visa_or_clearance TEXT, confidence INTEGER, model TEXT, extracted_at TEXT)`.
+  apply_deadline TEXT, visa_or_clearance TEXT, evidence TEXT /*JSON: field → verbatim JD
+  quote*/, confidence INTEGER, model TEXT, prompt_version TEXT, jd_hash TEXT, extracted_at TEXT)`.
 - Extraction: `extract_facts(...)` in a new `app/facts.py`, calling `_call_llm` with a JSON
   schema (mirror `build_batch_schema` / `_validate` patterns, clamp and bound everything).
   Runs in the daily watcher scoring step for new matches, plus
   `POST /api/jobs/{key}/extract-facts` for backfill; a bounded backlog loop like
   `SCORE_RETRY_CAP` handles history.
+- Evidence, machine-checked: the schema requires a short verbatim JD quote per extracted
+  non-null field (each `must_haves` entry included). The validator checks each quote is a
+  substring of the cached JD (whitespace-normalized) and nulls any field whose quote is
+  missing or not found — a wrong extraction must never become an opaque, highly influential
+  badge. The drawer shows the quote under each fact and under each conflict badge.
 - Conflict flags: pure-Python comparison of facts vs profile hard requirements
   (`max_office_days`, `min_level`, `comp_floor_cad`). Conflicts render as a warning badge
   on the row and sort the job down — never auto-dismiss (standing constraint).
@@ -150,8 +204,11 @@ hard-requirement flags. Sprints 5–7 all read from this table.
 **Acceptance**
 
 - Extraction is validated/clamped like scores; a malformed LLM response never writes a row.
+- Every stored non-null fact carries a quote found verbatim in the cached JD; a fact whose
+  quote fails the substring check is dropped, not stored (unit-test both directions).
 - A job conflicting with a hard requirement is flagged and demoted but still visible and
-  still scorable.
+  still scorable; the badge's evidence quote is one click away in the drawer.
+- The extract-facts affordance discloses that the JD is sent to Gemini.
 - `jobs` table untouched.
 
 **Out of scope:** comp percentiles UI (Sprint 7), any change to the scoring prompt.
@@ -182,8 +239,11 @@ decision tool.
 - Coverage report: `POST /api/jobs/{key}/coverage` — input is `job_facts.must_haves` +
   cached JD + the achievement bank; output per requirement:
   `{requirement, status: covered|adjacent|missing, achievement_ids[]}` via `_call_llm`
-  with a schema. Rendered in the job drawer as a plain three-state list (label + color,
-  never color alone).
+  with a schema. Each requirement row carries its JD evidence quote (inherited from the
+  Sprint 4 `must_haves` evidence), and the stored report records model + prompt version.
+  Rendered in the job drawer as a plain three-state list (label + color, never color
+  alone). The coverage affordance discloses that the JD and achievement bank are sent
+  to Gemini.
 
 **Acceptance**
 
@@ -209,20 +269,33 @@ decision tool.
 **Scope**
 
 - Schema: `application_kit (key REFERENCES jobs(key), resume_md TEXT, cover_md TEXT,
-  source_achievements TEXT /*JSON id array*/, model TEXT, generated_at TEXT, sent_at TEXT,
-  PRIMARY KEY (key, generated_at))` — versioned per generation, so you can always see
-  which version went out (`sent_at` marks it).
-- Generation: `POST /api/jobs/{key}/kit` streams like `deep_dive_stream`. The prompt gets
-  the JD, `job_facts`, the coverage report, and the achievement bank, with the hard
-  instruction that every resume bullet must be a rephrasing of a cited achievement ID and
-  the cover letter may only claim facts present in the bank or resume text. Output includes
-  the ID citations; the UI shows an audit view (bullet ↔ source achievement side by side).
-- UI: kit panel in the job drawer — generate, review with audit view, copy-to-clipboard
-  as markdown, "mark as sent" (sets `sent_at`). Past versions listed, read-only.
+  source_achievements TEXT /*JSON id array*/, model TEXT, prompt_version TEXT, jd_hash TEXT,
+  generated_at TEXT, sent_at TEXT, PRIMARY KEY (key, generated_at))` — versioned per
+  generation, so you can always see which version went out (`sent_at` marks it).
+- Generation: `POST /api/jobs/{key}/kit` streams like `deep_dive_stream` for progress, but
+  the model's output is a structured envelope, not free markdown: schema-enforced JSON
+  (mirror the scorer's schema/validate pattern) of
+  `{resume_bullets: [{text, achievement_ids[]}], cover_md, cover_claims: [{claim, source}]}`.
+  The prompt gets the JD, `job_facts`, the coverage report, and the achievement bank, with
+  the hard instruction that every resume bullet rephrases its cited achievements and the
+  cover letter may only claim facts present in the bank or resume text.
+- Validation before anything renders or persists: the envelope is parsed and machine-checked
+  — every bullet cites ≥1 achievement ID that exists in the bank (and isn't archived);
+  "cited achievement IDs" is enforced in code, never merely requested in prose. Only a
+  valid envelope is rendered to markdown and saved; a failed validation shows an honest
+  error and saves nothing.
+- UI: kit panel in the job drawer — generate, review with audit view (bullet ↔ source
+  achievement side by side, driven by the envelope's citations), copy-to-clipboard as
+  markdown, "mark as sent" (sets `sent_at`). Past versions listed, read-only. The generate
+  affordance discloses that the resume text, achievement bank, JD, and coverage report are
+  sent to Gemini.
 
 **Acceptance**
 
-- A generated bullet with no valid achievement citation fails validation and is not saved.
+- A generated bullet with no valid achievement citation fails envelope validation and is
+  not saved; the check runs on parsed IDs against the bank, not on prose.
+- Raw streamed output is never rendered as the kit; the saved kit and audit view are built
+  only from the validated envelope.
 - Marking sent never mutates the stored markdown; regeneration creates a new version.
 
 **Out of scope:** docx/pdf export, auto-filling any external form.
