@@ -65,6 +65,30 @@ def test_profile_columns_added_with_defaults(tmp_db):
     assert row["holistic_weight"] == 50 and row["rubric_updated_at"] is None
 
 
+def test_next_action_columns_are_added_to_a_pre_existing_job_state(tmp_path):
+    """The real watcher.db already has a job_state table, so CREATE TABLE IF NOT
+    EXISTS is a no-op there — the follow-up columns only arrive if the migration
+    path covers job_state as well as profile."""
+    from app import db as appdb
+    conn = appdb.get_conn(tmp_path / "old.db")
+    conn.execute("""CREATE TABLE job_state (
+        key TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'new'
+          CHECK (status IN ('new','interested','dismissed','applied')),
+        starred INTEGER NOT NULL DEFAULT 0, note TEXT, updated_at TEXT)""")
+    conn.execute("INSERT INTO job_state(key, status, note) VALUES ('k1','applied','keep me')")
+    conn.commit()
+
+    appdb.ensure_schema(conn)
+
+    row = conn.execute(
+        "SELECT status, note, next_action_at, next_action_note FROM job_state WHERE key='k1'").fetchone()
+    assert row["status"] == "applied" and row["note"] == "keep me"   # existing data survives
+    assert row["next_action_at"] is None and row["next_action_note"] is None
+    appdb.ensure_schema(conn)  # idempotent: a second launch must not re-add them
+    conn.close()
+
+
 def test_load_dimensions_filters_and_orders(tmp_db):
     from app import db as appdb
     tmp_db.execute("UPDATE score_dimensions SET archived=1 WHERE key='flex'")

@@ -10,19 +10,23 @@ import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
 import { getDimensions, scoreJob } from "../lib/api";
-import { orderByAttention, todayISO } from "../lib/nextAction";
+import { attentionReason, orderByAttention, todayISO } from "../lib/nextAction";
 import { scoreMap } from "../lib/score";
 import type { DimensionsPayload, Job } from "../lib/types";
 
-export function applyFilters(jobs: Job[], f: Filters): Job[] {
+export function applyFilters(jobs: Job[], f: Filters, today: string): Job[] {
   const q = f.q.trim().toLowerCase();
   return jobs.filter((j) => {
     if (q && !`${j.company} ${j.title} ${j.location}`.toLowerCase().includes(q)) return false;
-    if (f.status === "unreviewed" && j.status !== "new") return false;
-    if (f.status !== "all" && f.status !== "unreviewed" && j.status !== f.status) return false;
     if (f.tier != null && j.tier !== f.tier) return false;
     if (f.internalOnly && !j.is_internal) return false;
     if (f.unscoredOnly && j.fit != null) return false;
+    // The status chips are a triage lens, and the board opens on 'unreviewed'.
+    // Anything actually demanding action today has to come through that lens,
+    // or "nothing slips" only holds for people who remember to click All.
+    if (attentionReason(j, today)) return true;
+    if (f.status === "unreviewed" && j.status !== "new") return false;
+    if (f.status !== "all" && f.status !== "unreviewed" && j.status !== f.status) return false;
     return true;
   });
 }
@@ -58,7 +62,7 @@ export default function Board() {
   // rows in the order they are drawn
   const today = todayISO();
   const visible = useMemo(
-    () => orderByAttention(sortJobs(applyFilters(jobs ?? [], filters), sort, scores), today),
+    () => orderByAttention(sortJobs(applyFilters(jobs ?? [], filters, today), sort, scores), today),
     [jobs, filters, sort, scores, today],
   );
   const selected = visible.find((j) => j.key === selectedKey) ?? (jobs ?? []).find((j) => j.key === selectedKey) ?? null;

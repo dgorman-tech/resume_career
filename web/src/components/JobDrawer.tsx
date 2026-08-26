@@ -77,12 +77,18 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
     }
   };
 
-  // The 'f' shortcut opens the drawer straight onto the date field; hand the
-  // request back once honoured so a re-render cannot steal focus again.
+  // The 'f' shortcut opens the drawer straight onto the date field. This runs on
+  // a frame boundary on purpose: Radix's focus scope claims focus when the panel
+  // mounts, so focusing synchronously here loses the race and lands on Close.
+  // Deferring also covers pressing 'f' while the drawer is already open, where
+  // no mount — and so no onOpenAutoFocus — happens at all.
   useEffect(() => {
     if (!followUpRequested || !open || !job) return;
-    followUpRef.current?.focus();
-    onFollowUpHandled();
+    const frame = requestAnimationFrame(() => {
+      followUpRef.current?.focus();
+      onFollowUpHandled();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [followUpRequested, open, job, onFollowUpHandled]);
 
   const onFollowUpDate = (v: string) => {
