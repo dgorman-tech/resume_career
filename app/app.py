@@ -5,13 +5,14 @@ import os
 import re
 import statistics
 import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 import requests
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -19,8 +20,57 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app import db as appdb
 from app import facts as facts_mod
 from app import scorer, jd_fetch
+from app.envfile import load_dotenv
+
+# a friend's scheduled task never inherits a shell `export`; a gitignored
+# .env at the repo root covers GEMINI_API_KEY without touching OS settings.
+# A real environment variable already set always wins (see app/envfile.py).
+load_dotenv(appdb.REPO_ROOT / ".env")
 
 CONFIG_PATH = appdb.REPO_ROOT / "watcher" / "config.json"
+
+
+NOT_BUILT_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Career HQ — frontend not built</title>
+<style>
+  body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         max-width: 40rem; margin: 4rem auto; padding: 0 1.5rem; color: #1a1a1a; }
+  h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
+  code, pre { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre { background: #f2f2f0; border: 1px solid #ddd; border-radius: 6px;
+        padding: 0.75rem 1rem; overflow-x: auto; }
+  p { color: #333; }
+</style>
+</head>
+<body>
+<h1>The frontend hasn't been built yet</h1>
+<p>Career HQ's API is running fine, but <code>web/dist</code> doesn't exist, so
+there's no board to serve at this address. This is a one-time step after
+cloning the repo (or after pulling frontend changes).</p>
+<p>Run this from the repo root, then reload this page:</p>
+<pre>cd web &amp;&amp; npm install &amp;&amp; npm run build</pre>
+<p>See <code>SETUP.md</code> for the full setup guide.</p>
+</body>
+</html>
+"""
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # first-ever launch: no watcher/config.json yet. Copy the checked-in
+    # example so the Settings tab and the watcher both have something to
+    # read instead of leaving the friend staring at an empty, confusing UI.
+    # Never overwrites a config that's already there.
+    cfg_path = app.state.config_path
+    if not cfg_path.exists():
+        from app.settings import EXAMPLE_PATH
+        if EXAMPLE_PATH.exists():
+            cfg_path.write_text(EXAMPLE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+            print(f"no watcher/config.json found — created one from config.example.json at {cfg_path}")
+    yield
 
 VALID_STATUSES = {"new", "interested", "dismissed", "applied"}
 VALID_LEVELS = {"", "ic", "manager", "senior_manager", "director", "vp_plus"}
@@ -187,7 +237,7 @@ WHERE j.matched = 1
 
 
 def create_app(db_path=None, cfg=None, config_path=None):
-    app = FastAPI(title="Career HQ")
+    app = FastAPI(title="Career HQ", lifespan=_lifespan)
     # reject non-loopback Host headers so DNS rebinding can't reach the API
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
 
@@ -574,6 +624,10 @@ def create_app(db_path=None, cfg=None, config_path=None):
     dist = appdb.REPO_ROOT / "web" / "dist"
     if dist.exists():
         app.mount("/", StaticFiles(directory=str(dist), html=True), name="spa")
+    else:
+        @app.get("/", include_in_schema=False)
+        def _not_built():
+            return HTMLResponse(NOT_BUILT_HTML)
 
     return app
 

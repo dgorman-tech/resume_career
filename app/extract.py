@@ -34,8 +34,22 @@ def _from_docx(content):
 
 def _from_pdf(content):
     from pypdf import PdfReader
+    from pypdf.errors import DependencyError, FileNotDecryptedError
     reader = PdfReader(io.BytesIO(content))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    try:
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    except DependencyError as exc:
+        # only hit for AES-encrypted PDFs; plain PDFs never touch this path.
+        # requirements.txt doesn't pin the optional 'cryptography' package —
+        # google-genai already pulls it in transitively — so name the exact
+        # fix instead of adding a heavy dependency most uploads never need.
+        raise ExtractError(
+            "this PDF uses encryption that needs the optional 'cryptography' "
+            "package, which isn't installed — run: pip install cryptography") from exc
+    except FileNotDecryptedError as exc:
+        raise ExtractError(
+            "this PDF is password-protected — remove the password (or export "
+            "a fresh copy) and re-upload") from exc
 
 
 def _from_text(content):

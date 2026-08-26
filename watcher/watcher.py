@@ -21,11 +21,24 @@ import requests
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
+CONFIG_EXAMPLE_PATH = BASE_DIR / "config.example.json"
 LOG_PATH = BASE_DIR / "watcher.log"
 LOG_MAX_LINES = 2000
 NTFY_MAX_TITLES = 6
 SCORE_RETRY_CAP = 30
 FACTS_RETRY_CAP = 30
+
+# a scheduled task never inherits a shell `export` — the repo's own
+# troubleshooting notes call this out as the #1 reason scoring silently
+# fails on unattended runs. A gitignored .env at the repo root covers
+# GEMINI_API_KEY without touching OS-level settings. A real environment
+# variable already set always wins (see app/envfile.py for the loader).
+try:
+    sys.path.insert(0, str(BASE_DIR.parent))
+    from app.envfile import load_dotenv as _load_dotenv
+    _load_dotenv(BASE_DIR.parent / ".env")
+except ImportError:
+    pass
 
 
 # ---------------------------------------------------------------- utilities
@@ -50,6 +63,13 @@ def log(msg):
 
 
 def load_config():
+    # first-ever run on a fresh clone: no config.json yet. Copy the
+    # checked-in example so a friend who skipped the manual setup step
+    # still gets a working (if empty) config instead of a crash. Never
+    # overwrites a config that's already there.
+    if not CONFIG_PATH.exists() and CONFIG_EXAMPLE_PATH.exists():
+        CONFIG_PATH.write_text(CONFIG_EXAMPLE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        log("no config.json found — created one from config.example.json")
     cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     for key in ("companies", "filters"):
         if key not in cfg:

@@ -4,7 +4,7 @@ A personal job-search tooling project: a local job-posting watcher that's growin
 
 ## Architecture
 
-- **watcher.py** (`watcher/`) — polls public, unauthenticated ATS endpoints (Ashby, Lever, Workable, Workday CXS) for a configured company list, stores results in SQLite (`watcher.db`), and writes a searchable HTML job board plus a daily "what's new" digest.
+- **watcher.py** (`watcher/`) — polls public, unauthenticated ATS endpoints (Ashby, Lever, Greenhouse, Workable, Workday CXS, SuccessFactors) for a configured company list, stores results in SQLite (`watcher.db`), and writes a searchable HTML job board plus a daily "what's new" digest.
 - **Scheduling** — `watcher.py` runs once daily via Windows Task Scheduler (local, free, no LLM cost). A second scheduled task (Claude Code desktop) runs weekly to read the watcher's output and produce a scored summary — this is where automated judgment gets layered on top of the raw feed.
 - **Storage** — single SQLite DB (`watcher/watcher.db`, gitignored) holds every job ever seen plus poll history. Salary data is captured where the source exposes it (e.g. Ontario pay-transparency listings).
 - **Notifications** — optional push via [ntfy.sh](https://ntfy.sh) to a private topic, set locally in `config.json` and never committed.
@@ -18,7 +18,7 @@ A personal job-search tooling project: a local job-posting watcher that's growin
 ## Config
 
 `watcher/config.json` (gitignored — contains the target company list and ntfy topic) defines:
-- `companies`: name, adapter (`ashby` / `lever` / `workable` / `workday`), and slug/tenant per company
+- `companies`: name, adapter (`ashby` / `lever` / `greenhouse` / `workable` / `workday` / `successfactors`), and slug/tenant per company
 - `filters`: title keywords, seniority, location include/exclude
 - ntfy topic and request pacing
 

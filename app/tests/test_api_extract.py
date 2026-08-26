@@ -113,3 +113,19 @@ def test_rejects_file_with_no_extractable_text(client):
     resp = upload(client, "resume.pdf", make_pdf(""))
     assert resp.status_code == 400
     assert "no text" in resp.json()["error"].lower()
+
+
+def test_password_protected_pdf_gets_a_specific_message(client):
+    # RC4 encryption needs no optional dependency to construct — it's built
+    # into pypdf itself — so this stays a plain-install-only test while still
+    # exercising the "encrypted upload" branch in app/extract.py::_from_pdf.
+    from pypdf import PdfWriter
+    import io as _io
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.encrypt(user_password="secret", algorithm="RC4-40")
+    buf = _io.BytesIO()
+    writer.write(buf)
+    resp = upload(client, "resume.pdf", buf.getvalue())
+    assert resp.status_code == 400
+    assert "password-protected" in resp.json()["error"]

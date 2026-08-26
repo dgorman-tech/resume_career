@@ -7,3 +7,9 @@ pytest
 python-docx
 pypdf
 python-multipart
+
+# Not listed directly: pypdf's optional AES-decryption path needs
+# `cryptography` (which needs `cffi`), but google-genai already pulls in
+# `cryptography` transitively via google-auth, and plain (unencrypted) PDF
+# uploads never touch that path at all — see app/extract.py::_from_pdf for
+# the graceful error an encrypted upload gets instead of a raw traceback.
