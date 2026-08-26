@@ -1,7 +1,6 @@
 """Career HQ FastAPI backend. Run: python -m uvicorn app.app:app --host 127.0.0.1 --port 8765"""
 
 import json
-import os
 import re
 import statistics
 import threading
@@ -20,7 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app import db as appdb
 from app import facts as facts_mod
 from app import scorer, jd_fetch
-from app.envfile import load_dotenv
+from app.envfile import gemini_key_configured, load_dotenv
 
 # a friend's scheduled task never inherits a shell `export`; a gitignored
 # .env at the repo root covers GEMINI_API_KEY without touching OS settings.
@@ -317,7 +316,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
                 """SELECT COUNT(*) FROM jobs j LEFT JOIN job_scores s ON s.key=j.key
                    WHERE j.matched=1 AND j.closed_at IS NULL AND s.key IS NULL""").fetchone()[0]
             return ok({
-                "key_present": bool(os.environ.get("GEMINI_API_KEY")),
+                "key_present": gemini_key_configured(),
                 "batch_model": appc.get("batch_model", "gemini-flash-latest"),
                 "deep_dive_model": appc.get("deep_dive_model", "gemini-pro-latest"),
                 "batch_scoring": appc.get("batch_scoring", True),

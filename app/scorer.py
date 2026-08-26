@@ -2,10 +2,10 @@
 
 import hashlib
 import json
-import os
 
 from app import jd_fetch
 from app.db import load_dimensions, now_iso
+from app.envfile import gemini_key_configured
 
 
 class ScorerError(Exception):
@@ -129,8 +129,10 @@ def build_batch_prompt(profile, job, jd_text, lens, dimensions):
 
 def _call_llm(cfg, model, prompt, schema=None):
     """Sole non-streaming touchpoint with google-genai. Fix SDK drift here only."""
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise ScorerError("GEMINI_API_KEY is not set")
+    if not gemini_key_configured():
+        raise ScorerError(
+            "GEMINI_API_KEY is not set (or is still the placeholder from .env.example) "
+            "— put your real key in .env")
     from google import genai
     from google.genai import types
     client = genai.Client()
@@ -238,8 +240,10 @@ def build_deep_dive_prompt(profile, job, jd_text, lens, batch_score, salary_evid
 
 def _stream_llm(cfg, model, prompt):
     """Sole streaming touchpoint with google-genai. Fix SDK drift here only."""
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise ScorerError("GEMINI_API_KEY is not set")
+    if not gemini_key_configured():
+        raise ScorerError(
+            "GEMINI_API_KEY is not set (or is still the placeholder from .env.example) "
+            "— put your real key in .env")
     from google import genai
     from google.genai import types
     client = genai.Client()

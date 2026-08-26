@@ -1,17 +1,24 @@
 # Career HQ — Sprint Plan
 
-Seven sprints, each sized for one focused Claude Code session and independently shippable.
-Sprint numbers are stable identifiers; run them in the execution order below. Every sprint
-ends the same way: tests pass (`pytest` + `npm test` in `web/`), `python scripts/privacy_scan.py`
-is clean, and the change is a single reviewable PR. (`web/` has no `test` script today;
-wiring `"test": "vitest run"` is Sprint 1's first task — vitest, jsdom, and testing-library
-are already devDependencies.)
+Eight sprints (0 through 7), each sized for one focused Claude Code session and independently
+shippable. Sprint numbers are stable identifiers; run them in the execution order below. Every
+sprint ends the same way: tests pass (`pytest` + `npm test` in `web/`), `python scripts/privacy_scan.py`
+is clean, and the change is a single reviewable PR. (`web/`'s `test` script was missing before
+Sprint 1; wiring `"test": "vitest run"` was its first task — vitest, jsdom, and testing-library
+were already devDependencies.)
 
-**Execution order (revised 2026-08-25):** 1 → 2 → 4 → 5 → 6 → 7 → 3. Sprint 3 (supply)
-moved behind the Application Kit: the board already has substantial supply, and the binding
-constraint is converting promising roles into applications, not finding more of them. Run
-Sprint 3 earlier only if the watchlist is demonstrably too thin to keep the pipeline full.
-Data dependencies survive this order: 2 and 4 feed 5–7; 3 feeds nothing downstream.
+**Execution order — history and what's left (updated 2026-08-26):** shipped, in order:
+1 → 2 → 4 → 3 → 0. Remaining: 5 → 6 → 7.
+
+The original plan (revised 2026-08-25) was 1 → 2 → 4 → 5 → 6 → 7 → 3, deferring Sprint 3
+(supply) behind the Application Kit. Sprint 3 shipped early instead of last — see its entry
+below for why. Sprint 0 (Guest Ready) didn't exist in that plan at all: partway through, the
+project's goal changed from a personal tool to something a few friends self-host — one of them
+in Dublin, on EUR, with his own resume and watchlist — and a copy that's hardcoded to CAD, ships
+a rubric shaped around one person's role opinions, and dead-ends a fresh clone before first
+launch isn't guest-ready regardless of where it sits in the queue. Sprint 0 jumped ahead of
+everything still unshipped to close that gap before any of it reached a friend. Data
+dependencies from the original plan still hold: 2 and 4 feed 5–7; 3 feeds nothing downstream.
 
 **Standing constraints for every sprint** (repeat these to Claude verbatim):
 
@@ -30,6 +37,126 @@ Data dependencies survive this order: 2 and 4 feed 5–7; 3 feeds nothing downst
   hashes of the inputs (profile/rubric/JD as applicable); every UI affordance that can
   trigger an LLM call carries a plain one-line disclosure of what gets sent to Gemini;
   extracted facts and coverage claims cite verbatim source quotes, machine-checked.
+- `profile.currency` (default `CAD`) is a first-class column now; `comp_floor`/`comp_goal`
+  are its renamed, unsuffixed columns (no more `_cad`). Anything that reads, displays, or
+  prompts an LLM with a comp number must carry `profile.currency` alongside it — never assume CAD.
+- `app/scorer.py`'s `PROMPT_VERSION` is `"batch/2"`. Bump it again the next time
+  `build_batch_prompt`'s shape changes, so `score_history` rows stay attributable to the
+  exact prompt that produced them.
+- `watcher/watcher.py`'s `_strip_html` unescapes HTML entities to a fixed point *before*
+  stripping tags, not after — required for Greenhouse's `content` field, which arrives HTML
+  escaped as text and sometimes doubly. Any new JD-text helper must follow the same order or
+  reintroduce the bug Sprint 3 shipped and fixed.
+- `app/jd_fetch.py`'s on-demand `_FETCHERS` (used to refill `jd_cache` when it's empty) has
+  no `greenhouse` entry — Greenhouse JD text only ever reaches `jd_cache` via the watcher's
+  `inline_jd` path, captured once at poll time. A backfill or re-score call for a Greenhouse
+  job whose cache row is missing silently falls back to no-JD scoring instead of refetching.
+  Known gap, not fixed in Sprint 0 — Sprint 4/5's backlog loops should close it or account for it.
+- `.env` at the repo root (loader: `app/envfile.py`, stdlib only) is how unattended runs get
+  `GEMINI_API_KEY`; a real OS environment variable always wins. Use
+  `app.envfile.gemini_key_configured()` to check whether a key is actually usable — a bare
+  truthiness check on the env var also passes on the literal placeholder `scripts/setup.py`
+  copies from `.env.example` into every fresh clone's `.env`.
+
+---
+
+## Sprint 0 — Guest Ready
+
+**Why:** every sprint above and below was built and tested against the owner's own working
+copy — a real `watcher/config.json`, a built `web/dist`, an installed environment, salary
+numbers hardcoded to CAD, and a rubric shaped around one person's role opinions. None of that
+exists for a friend running this from a fresh `git clone`, and the project's goal changed
+mid-flight from a personal tool to something a few friends self-host — one of them in Dublin,
+on EUR, with his own resume and his own watchlist. Sprint 0 closes that gap before anything
+ships to a friend.
+
+**Shipped in:** `f57d39e` (currency + neutral rubric), `11992e4` (Greenhouse adapter +
+paste-a-URL detect — this is Sprint 3, pulled forward; see its entry below for why), `a0e59cf`
+(launcher, `.env`, bootstrap script, setup docs), plus a fresh-clone acceptance pass that found
+and fixed one more guest-facing bug (see Acceptance).
+
+**Scope**
+
+*Phase 1 — currency is a first-class setting, the rubric is neutral (`f57d39e`)*
+- `profile.comp_floor_cad`/`comp_goal_cad` renamed to `comp_floor`/`comp_goal`;
+  `profile.currency` (default `CAD`) added. A guarded, idempotent `ensure_schema` migration
+  backfills the renamed columns from the old ones on an existing DB without ever dropping them.
+- The scoring prompt labels comp floor/goal with the profile's configured currency instead of
+  a hardcoded CAD, and prefers a posting's verbatim `salary_raw` over a numeric range guessed
+  into the wrong currency; `PROMPT_VERSION` bumped to `batch/2` so score history stays honest
+  about which prompt produced a number.
+- Board, drawer, and stats bar render salary in the profile's currency
+  (CA$/US$/€/£/A$/NZ$/CHF /kr /₹/S$, else `"CODE "`).
+- `DEFAULT_DIMENSIONS` swapped player-coach/cost-center for five neutral dimensions (comp,
+  level & scope, flexibility & work location, domain & skills fit, growth & trajectory) — only
+  affects fresh installs, since seeding fires only when `score_dimensions` is empty.
+
+*Phase 2 — more supply, less setup friction (`11992e4`, = Sprint 3)*
+- Full scope in Sprint 3's entry below — the `fetch_greenhouse` adapter and
+  `POST /api/companies/detect`.
+- Also fixed a latent bug the Greenhouse work surfaced: the shared JD HTML-stripping helper
+  decoded entities after stripping tags, backwards for Greenhouse's `content` field (HTML
+  escaped as text, sometimes doubly) — it now unescapes to a fixed point first.
+
+*Phase 3 — a fresh clone actually reaches a working launch (`a0e59cf`)*
+- `career-hq.sh` (macOS/Linux launcher, mirrors `career-hq.bat`): starts the server if it
+  isn't already listening, waits, opens the browser (`open`/`xdg-open`, else prints the URL).
+  Both launchers read `app.port` from `watcher/config.json` via shared `scripts/read_port.py`
+  instead of hardcoding `8765` twice.
+- The app and the watcher both auto-create `watcher/config.json` from the checked-in example
+  at startup if it's missing (one log line, never touches an existing file).
+- The root URL before `npm run build` returns an honest, self-contained page naming the exact
+  fix instead of a bare 404; the API keeps working underneath the whole time.
+- `.env` at the repo root (loader: `app/envfile.py`, stdlib only) covers `GEMINI_API_KEY` for
+  scheduled/unattended runs — a real environment variable, if set, still wins.
+- `scripts/setup.py`: a stdlib-only, re-runnable bootstrap — checks Python/Node versions,
+  installs dependencies, creates `config.json`/`.env` from their templates, builds the web
+  app, and fails with a plain-language message (never a bare traceback) at every step.
+- Encrypted-PDF resume uploads get a specific, actionable error instead of a generic one
+  (investigated the reported pypdf/cryptography/cffi gap — a clean install already pulls in
+  cryptography+cffi transitively via `google-genai`, so a heavier pin wasn't the actual fix
+  needed).
+- `SETUP.md` rewritten around the bootstrap script as the happy path, paste-a-URL as the
+  primary way to add a company, Greenhouse/SuccessFactors added to the adapter table, and a
+  new step for setting currency in Profile → Hard requirements.
+
+**Acceptance**
+
+Verified end to end against a real fresh clone, not the working copy — `git clone` of the
+pushed branch into a scratch directory, no copying of the working tree:
+
+- The clone contained none of `watcher/config.json`, `.env`, `web/dist`, `node_modules`,
+  `watcher.db` — gitignore holds.
+- `python3 scripts/setup.py`, run verbatim, completed with no bare traceback: dependencies
+  installed, `config.json`/`.env` created from their templates, web app built.
+- `./career-hq.sh` started the server; the root URL served the actual built board (not the
+  not-built page); `/api/health`, `/api/settings`, and `/api/profile` all responded.
+- `POST /api/companies/detect` on a real Dublin Greenhouse posting
+  (`job-boards.greenhouse.io/intercom/jobs/...`) correctly returned `adapter: greenhouse`,
+  `slug: intercom`; saved via `PUT /api/settings`, then `watcher/watcher.py --dry-run` in the
+  clone polled the live Intercom board (116 jobs, 13 matched) with zero DB writes.
+- `currency: "EUR"` and a comp floor round-tripped through `PUT`/`GET /api/profile`; the
+  board's salary formatting (`web/src/lib/format.ts`'s `CURRENCY_SYMBOLS`, covered by the
+  passing web test suite) renders EUR as `€`.
+- Found one guest-facing bug this walkthrough didn't catch on the first pass: right after
+  `scripts/setup.py` runs, `.env` holds `.env.example`'s literal placeholder
+  (`GEMINI_API_KEY=your-gemini-api-key-here`), and `/api/health`'s `key_present` was a bare
+  `bool(os.environ.get(...))` — so a friend's gear icon reports the key as present, and the
+  first scoring attempt fails with an opaque Gemini auth error instead of the plain "add your
+  key" message they'd get from no key at all. Fixed: `app.envfile.gemini_key_configured()`
+  treats that exact placeholder as absent; wired into `/api/health` and both of `scorer.py`'s
+  LLM touchpoints (`_call_llm`, `_stream_llm`).
+
+**Out of scope**
+
+- Windows was not re-tested end to end this phase (no Windows environment available in this
+  session) — only the macOS/Linux launcher path was exercised against a real fresh clone.
+- `app/jd_fetch.py`'s on-demand fetchers still lack a `greenhouse` entry (see Standing
+  constraints) — not hit by this phase's walkthrough since no `GEMINI_API_KEY` was configured,
+  but a real gap for Sprint 4/5 to account for.
+- Making Python/Node installation itself friend-proof — `scripts/setup.py` checks versions and
+  gives plain instructions, but the friend still installs both themselves per `SETUP.md`'s
+  prerequisites.
 
 ---
 
@@ -138,10 +265,14 @@ edits measurable later. Both are tiny.
 the most common public ATS not yet covered, and "paste any job URL, get the company
 watched" removes the friction that keeps the list small.
 
-**When:** deferred to last (see Execution order). The board's supply is currently adequate;
-the binding constraint is converting promising roles into applications. This sprint stays
-fully specified and ready — pull it forward only if the watchlist is demonstrably too thin
-to keep the pipeline full.
+**When:** shipped early, in `11992e4`, as the second phase of Sprint 0 — not deferred to last
+as the 2026-08-25 plan called for. Two things pulled it forward: the Dublin friend's watchlist
+leans on Greenhouse, a board this app had zero coverage of before this sprint; and paste-a-URL
+removes the exact setup friction — knowing what a "slug" or "tenant" is and digging one out of
+a careers URL by hand — that would otherwise stop a non-technical guest at the first step of
+Settings. The original deferral reasoning still holds for the owner's own instance (supply is
+adequate, conversion is the binding constraint); it just stopped being a reason to hold this
+specific sprint back once a guest with a different watchlist entered the picture.
 
 **Scope**
 
@@ -154,12 +285,17 @@ to keep the pipeline full.
   Settings tab gets a "paste a URL" affordance that pre-fills the existing add-company form
   (reuse `CompanyDialog`); the user confirms name/tier before saving. No fetching from the
   detect endpoint — it's pure URL parsing.
-- `watcher/config.example.json` and `watcher/README.md` updated for the new adapter.
+- `watcher/README.md` updated for the new adapter (`watcher/config.example.json` needed no
+  change — its `companies` list ships empty).
+- Shipped wider than originally scoped: `detect_company_url` also recognizes SuccessFactors
+  hosts (host-only — feed URLs still get added by hand, since they aren't guessable from a
+  single job URL), for six ATS shapes total.
 
 **Acceptance**
 
 - `python watcher/watcher.py --dry-run` succeeds against a real public Greenhouse board.
-- URL detection has unit tests covering all five ATS URL shapes, including negatives.
+  Re-verified in Sprint 0's fresh-clone acceptance pass against Intercom's live board.
+- URL detection has unit tests covering all six ATS URL shapes, including negatives.
 
 **Out of scope:** automated company discovery, news feeds, directory crawling.
 
@@ -361,8 +497,12 @@ Cut after review, with reasons, so future sessions don't re-propose them:
 - **Cost ledger table/UI** — a log line suffices at personal-watchlist volume.
 - **Card-stack triage mode** — j/k on rows already is the triage flow; PRODUCT.md's "rows
   are the interface" cuts against a second UI.
-- **Multi-profile** — friends run their own instance; guest-proofing means good defaults,
-  not multi-tenancy.
+- **Multi-profile / hosted multi-tenancy** — re-affirmed after Sprint 0, now with the friend
+  use case actually in hand rather than hypothetical: each friend self-hosts their own
+  instance, own DB, own `.env`; guest-proofing (Sprint 0) means good defaults, not
+  multi-tenancy. Hosting everyone's data centrally was considered and rejected — it would make
+  the owner a data controller for other people's CVs and comp expectations, and a
+  Dublin-resident friend turns that into a real GDPR posture, not a hypothetical one.
 - **Funnel conversion metrics** — explicit PRODUCT.md anti-reference.
 - **Provider abstraction** — deferred until a second real user asks; the two-touchpoint
   isolation in scorer.py is enough for now.

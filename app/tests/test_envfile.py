@@ -1,4 +1,4 @@
-from app.envfile import load_dotenv, parse_env_text
+from app.envfile import PLACEHOLDER_GEMINI_KEY, gemini_key_configured, load_dotenv, parse_env_text
 
 
 def test_parses_basic_key_value():
@@ -61,3 +61,22 @@ def test_load_dotenv_is_a_noop_when_file_missing(tmp_path):
     environ = {"UNRELATED": "1"}
     load_dotenv(tmp_path / "does-not-exist.env", environ=environ)
     assert environ == {"UNRELATED": "1"}
+
+
+def test_gemini_key_configured_true_for_a_real_looking_value():
+    assert gemini_key_configured({"GEMINI_API_KEY": "AIzaSomethingReal"}) is True
+
+
+def test_gemini_key_configured_false_when_unset():
+    assert gemini_key_configured({}) is False
+
+
+def test_gemini_key_configured_false_for_empty_string():
+    assert gemini_key_configured({"GEMINI_API_KEY": ""}) is False
+
+
+def test_gemini_key_configured_false_for_unfilled_placeholder():
+    # scripts/setup.py copies .env.example verbatim on a fresh clone, so this
+    # exact string is what a friend's environment has right after bootstrap
+    # and before they've pasted in a real key.
+    assert gemini_key_configured({"GEMINI_API_KEY": PLACEHOLDER_GEMINI_KEY}) is False

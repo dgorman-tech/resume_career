@@ -226,3 +226,25 @@ def test_out_of_range_fit_clamped(tmp_db, monkeypatch):
     monkeypatch.setattr(scorer, "_call_llm", lambda *a, **k: json.dumps(bad))
     monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD")
     assert scorer.score_job(tmp_db, MagicMock(), CFG, "k1")["fit"] == 100
+
+
+def test_call_llm_rejects_unset_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(scorer.ScorerError, match="GEMINI_API_KEY"):
+        scorer._call_llm(CFG, "test-flash", "prompt")
+
+
+def test_call_llm_rejects_unfilled_placeholder_key(monkeypatch):
+    # a fresh `scripts/setup.py` run copies .env.example verbatim, so right
+    # after bootstrap GEMINI_API_KEY is genuinely set — to a value that will
+    # never authenticate. This must fail the same plain way as no key at all,
+    # not surface an opaque Gemini auth error on the first real call.
+    monkeypatch.setenv("GEMINI_API_KEY", "your-gemini-api-key-here")
+    with pytest.raises(scorer.ScorerError, match="GEMINI_API_KEY"):
+        scorer._call_llm(CFG, "test-flash", "prompt")
+
+
+def test_stream_llm_rejects_unfilled_placeholder_key(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "your-gemini-api-key-here")
+    with pytest.raises(scorer.ScorerError, match="GEMINI_API_KEY"):
+        next(scorer._stream_llm(CFG, "test-flash", "prompt"))

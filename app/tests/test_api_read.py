@@ -101,3 +101,12 @@ def test_health_never_leaks_key(client, monkeypatch):
     assert body["key_present"] is True
     assert "secret-value" not in str(body)
     assert body["batch_model"] == "m-flash"
+
+
+def test_health_reports_unfilled_placeholder_key_as_absent(client, monkeypatch):
+    # a fresh `scripts/setup.py` run copies .env.example verbatim, so this is
+    # exactly what a friend's environment looks like right after bootstrap —
+    # the gear icon must not claim the key is configured.
+    monkeypatch.setenv("GEMINI_API_KEY", "your-gemini-api-key-here")
+    body = client.get("/api/health").json()["data"]
+    assert body["key_present"] is False
