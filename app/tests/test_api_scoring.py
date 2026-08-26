@@ -16,6 +16,22 @@ def client(tmp_db):
     return TestClient(create_app(db_path=db_file, cfg=CFG), base_url="http://127.0.0.1")
 
 
+@pytest.fixture(autouse=True)
+def drain_backfill():
+    """The backfill slot is a module global guarding one worker thread. A test
+    that starts one and returns without waiting leaves `running` set, and the
+    next test to post a backfill gets 409'd instead of running."""
+    yield
+    from app import app as appmod
+    for _ in range(300):
+        with appmod._backfill_lock:
+            if not appmod._backfill["running"]:
+                break
+        time.sleep(0.01)
+    with appmod._backfill_lock:
+        appmod._backfill.update({"running": False, "done": 0, "total": 0, "errors": 0})
+
+
 def _seed_profile(conn):
     conn.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at) VALUES (1,'R','X','2026-08-24T00:00:00Z')")
     conn.commit()

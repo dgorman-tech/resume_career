@@ -89,6 +89,50 @@ def test_next_action_columns_are_added_to_a_pre_existing_job_state(tmp_path):
     conn.close()
 
 
+def test_dismiss_reason_column_reaches_a_pre_existing_job_state(tmp_path):
+    from app import db as appdb
+    conn = appdb.get_conn(tmp_path / "old.db")
+    conn.execute("""CREATE TABLE job_state (
+        key TEXT PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'new'
+          CHECK (status IN ('new','interested','dismissed','applied')),
+        starred INTEGER NOT NULL DEFAULT 0, note TEXT, updated_at TEXT)""")
+    conn.commit()
+
+    appdb.ensure_schema(conn)
+
+    conn.execute("INSERT INTO job_state(key, status, dismiss_reason) VALUES ('k1','dismissed','comp')")
+    assert conn.execute("SELECT dismiss_reason FROM job_state WHERE key='k1'").fetchone()[0] == "comp"
+    conn.close()
+
+
+def test_dismiss_reason_rejects_a_reason_outside_the_vocabulary(tmp_db):
+    import sqlite3, pytest
+    tmp_db.execute("INSERT INTO job_state(key, status, dismiss_reason) VALUES ('k1','dismissed','rto')")
+    with pytest.raises(sqlite3.IntegrityError):
+        tmp_db.execute("INSERT INTO job_state(key, status, dismiss_reason) VALUES ('k2','dismissed','vibes')")
+
+
+def test_dismiss_reason_is_optional(tmp_db):
+    # dismissing without picking a reason must stay possible; the reason is a bonus
+    tmp_db.execute("INSERT INTO job_state(key, status) VALUES ('k1','dismissed')")
+    assert tmp_db.execute("SELECT dismiss_reason FROM job_state WHERE key='k1'").fetchone()[0] is None
+
+
+def test_score_history_records_provenance_and_appends(tmp_db):
+    from app import db as appdb
+    cols = {r["name"] for r in tmp_db.execute("PRAGMA table_info(score_history)").fetchall()}
+    assert {"key", "fit", "subscores", "why", "gaps", "angle", "lens", "model",
+            "prompt_version", "profile_hash", "rubric_hash", "jd_hash", "scored_at"} <= cols
+    for fit in (70, 80):
+        tmp_db.execute(
+            "INSERT INTO score_history(key, fit, model, prompt_version, scored_at) VALUES (?,?,?,?,?)",
+            ("k1", fit, "m", "batch/1", appdb.now_iso()))
+    # append-only: the second write must not replace the first
+    assert [r[0] for r in tmp_db.execute(
+        "SELECT fit FROM score_history WHERE key='k1' ORDER BY id").fetchall()] == [70, 80]
+
+
 def test_load_dimensions_filters_and_orders(tmp_db):
     from app import db as appdb
     tmp_db.execute("UPDATE score_dimensions SET archived=1 WHERE key='flex'")

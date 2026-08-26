@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS job_state (
   note TEXT,
   next_action_at TEXT,
   next_action_note TEXT,
+  dismiss_reason TEXT
+    CHECK (dismiss_reason IN ('comp','rto','level','domain','company','other')),
   updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS job_scores (
@@ -40,6 +42,22 @@ CREATE TABLE IF NOT EXISTS job_scores (
   model TEXT, scored_at TEXT,
   deep_dive_md TEXT, deep_dive_model TEXT, deep_dive_at TEXT
 );
+-- Append-only log of every score ever written, with enough provenance to answer
+-- "what produced this number?" later: which model, which prompt revision, and
+-- hashes of the exact profile/rubric/JD text that went into it.
+CREATE TABLE IF NOT EXISTS score_history (
+  id INTEGER PRIMARY KEY,
+  key TEXT REFERENCES jobs(key),
+  fit INTEGER,
+  subscores TEXT,
+  why TEXT, gaps TEXT, angle TEXT,
+  lens TEXT CHECK (lens IN ('external','internal')),
+  model TEXT,
+  prompt_version TEXT,
+  profile_hash TEXT, rubric_hash TEXT, jd_hash TEXT,
+  scored_at TEXT
+);
+CREATE INDEX IF NOT EXISTS score_history_key_idx ON score_history(key, scored_at);
 CREATE TABLE IF NOT EXISTS jd_cache (
   key TEXT PRIMARY KEY REFERENCES jobs(key),
   jd_text TEXT, fetched_at TEXT
@@ -77,9 +95,15 @@ PROFILE_ADDED_COLUMNS = [
     ("rubric_updated_at", "TEXT"),
 ]
 
+DISMISS_REASONS = ("comp", "rto", "level", "domain", "company", "other")
+
 JOB_STATE_ADDED_COLUMNS = [
     ("next_action_at", "TEXT"),
     ("next_action_note", "TEXT"),
+    # SQLite enforces a CHECK added this way, and NULL passes it (NULL IN (...)
+    # is NULL, not false), so an unexplained dismissal stays legal
+    ("dismiss_reason", "TEXT CHECK (dismiss_reason IN "
+                       "('comp','rto','level','domain','company','other'))"),
 ]
 
 ADDED_COLUMNS = {"profile": PROFILE_ADDED_COLUMNS, "job_state": JOB_STATE_ADDED_COLUMNS}

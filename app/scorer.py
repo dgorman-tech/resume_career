@@ -1,5 +1,6 @@
 """All Gemini calls for Career HQ. Batch scoring here; deep dive added in Task 9."""
 
+import hashlib
 import json
 import os
 
@@ -9,6 +10,26 @@ from app.db import load_dimensions, now_iso
 
 class ScorerError(Exception):
     pass
+
+
+# Bump whenever build_batch_prompt changes shape, so a stored score can be told
+# apart from one the current prompt would produce.
+PROMPT_VERSION = "batch/1"
+
+
+def input_hash(text):
+    """Short digest identifying an exact prompt input. Stored instead of the text
+    itself: enough to prove two scores saw the same resume, without keeping a
+    second copy of personal data in an append-only table."""
+    if text is None:
+        return None
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def profile_fingerprint(profile):
+    """The candidate-side text that actually reaches the model."""
+    return "\n".join([format_structured_facts(profile),
+                      profile["rules_text"] or "", profile["resume_text"] or ""])
 
 
 _EXTERNAL_PREAMBLE = """You are scoring an EXTERNAL job posting for this candidate. Score 0-100 overall (fit)
@@ -155,6 +176,14 @@ def score_job(conn, session, cfg, key, inline_jd=None):
         _call_llm(cfg, model, build_batch_prompt(profile, job, jd_text, lens, dims),
                   build_batch_schema(keys)),
         keys)
+    scored_at = now_iso()
+    conn.execute(
+        """INSERT INTO score_history(key, fit, subscores, why, gaps, angle, lens, model,
+                                     prompt_version, profile_hash, rubric_hash, jd_hash, scored_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (key, d["fit"], json.dumps(d["subscores"]), d["why"], d["gaps"], d["angle"], lens, model,
+         PROMPT_VERSION, input_hash(profile_fingerprint(profile)),
+         input_hash(build_rubric(dims, lens)), input_hash(jd_text), scored_at))
     conn.execute(
         """INSERT INTO job_scores(key, fit, subscores, why, gaps, angle, lens, model, scored_at)
            VALUES (?,?,?,?,?,?,?,?,?)
@@ -162,7 +191,7 @@ def score_job(conn, session, cfg, key, inline_jd=None):
              why=excluded.why, gaps=excluded.gaps, angle=excluded.angle, lens=excluded.lens,
              model=excluded.model, scored_at=excluded.scored_at""",
         (key, d["fit"], json.dumps(d["subscores"]), d["why"], d["gaps"], d["angle"],
-         lens, model, now_iso()))
+         lens, model, scored_at))
     conn.commit()
     return d
 

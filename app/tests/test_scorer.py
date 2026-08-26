@@ -109,6 +109,61 @@ def test_score_job_persists(tmp_db, monkeypatch):
     assert json.loads(row["subscores"])["comp"] == 95
 
 
+def test_score_job_appends_history_with_provenance(tmp_db, monkeypatch):
+    _seed_profile(tmp_db)
+    monkeypatch.setattr(scorer, "_call_llm", lambda cfg, model, prompt, schema=None: GOOD)
+    monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD BODY")
+
+    scorer.score_job(tmp_db, MagicMock(), CFG, "k1")
+
+    row = tmp_db.execute("SELECT * FROM score_history WHERE key='k1'").fetchone()
+    assert row["fit"] == 92 and row["lens"] == "external" and row["model"] == "test-flash"
+    assert row["prompt_version"] == scorer.PROMPT_VERSION
+    # every input that could move the number is identified, without storing it
+    assert row["profile_hash"] and row["rubric_hash"] and row["jd_hash"]
+    assert "RESUME TEXT" not in str(dict(row))
+    assert json.loads(row["subscores"])["comp"] == 95
+
+
+def test_rescoring_keeps_the_earlier_history_rows(tmp_db, monkeypatch):
+    _seed_profile(tmp_db)
+    monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD BODY")
+    for fit in (60, 90):
+        payload = json.loads(GOOD); payload["fit"] = fit
+        monkeypatch.setattr(scorer, "_call_llm", lambda *a, _p=payload, **k: json.dumps(_p))
+        scorer.score_job(tmp_db, MagicMock(), CFG, "k1")
+
+    assert [r[0] for r in tmp_db.execute(
+        "SELECT fit FROM score_history WHERE key='k1' ORDER BY id").fetchall()] == [60, 90]
+    # job_scores still holds only the latest
+    assert tmp_db.execute("SELECT fit FROM job_scores WHERE key='k1'").fetchone()[0] == 90
+
+
+def test_history_hashes_track_the_inputs_that_changed(tmp_db, monkeypatch):
+    _seed_profile(tmp_db)
+    monkeypatch.setattr(scorer, "_call_llm", lambda cfg, model, prompt, schema=None: GOOD)
+    monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD BODY")
+    scorer.score_job(tmp_db, MagicMock(), CFG, "k1")
+
+    tmp_db.execute("UPDATE profile SET rules_text='DIFFERENT RULES' WHERE id=1")
+    tmp_db.commit()
+    scorer.score_job(tmp_db, MagicMock(), CFG, "k1")
+
+    rows = tmp_db.execute(
+        "SELECT profile_hash, rubric_hash, jd_hash FROM score_history WHERE key='k1' ORDER BY id").fetchall()
+    assert rows[0]["profile_hash"] != rows[1]["profile_hash"]   # the rules moved
+    assert rows[0]["rubric_hash"] == rows[1]["rubric_hash"]     # the rubric did not
+    assert rows[0]["jd_hash"] == rows[1]["jd_hash"]             # nor the JD
+
+
+def test_history_records_a_missing_jd_as_absent_not_empty(tmp_db, monkeypatch):
+    _seed_profile(tmp_db)
+    monkeypatch.setattr(scorer, "_call_llm", lambda cfg, model, prompt, schema=None: GOOD)
+    monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: None)
+    scorer.score_job(tmp_db, MagicMock(), CFG, "k1")
+    assert tmp_db.execute("SELECT jd_hash FROM score_history WHERE key='k1'").fetchone()[0] is None
+
+
 def test_score_job_internal_lens(tmp_db, monkeypatch):
     _seed_profile(tmp_db)
     monkeypatch.setattr(scorer, "_call_llm", lambda cfg, model, prompt, schema=None: GOOD)

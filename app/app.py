@@ -40,6 +40,7 @@ class JobStatePatch(BaseModel):
     note: Optional[str] = None
     next_action_at: Optional[str] = None
     next_action_note: Optional[str] = None
+    dismiss_reason: Optional[str] = None
 
 
 class ProfileBody(BaseModel):
@@ -95,6 +96,7 @@ def _row_to_job(row, internal, stale_after):
         "note": d.get("note") or "",
         "next_action_at": d.get("next_action_at"),
         "next_action_note": d.get("next_action_note") or "",
+        "dismiss_reason": d.get("dismiss_reason"),
         "fit": d.get("fit"),
         "subscores": json.loads(d["subscores"]) if d.get("subscores") else None,
         "why": d.get("why"), "gaps": d.get("gaps"), "angle": d.get("angle"),
@@ -149,7 +151,7 @@ def _bump_rubric(conn):
 
 
 JOBS_SQL = """
-SELECT j.*, s.status, s.starred, s.note, s.next_action_at, s.next_action_note,
+SELECT j.*, s.status, s.starred, s.note, s.next_action_at, s.next_action_note, s.dismiss_reason,
        sc.fit, sc.subscores, sc.why, sc.gaps, sc.angle, sc.lens, sc.scored_at, sc.deep_dive_md
 FROM jobs j
 LEFT JOIN job_state s ON s.key = j.key
@@ -250,6 +252,8 @@ def create_app(db_path=None, cfg=None, config_path=None):
     def patch_job(key: str, body: JobStatePatch):
         if body.status is not None and body.status not in VALID_STATUSES:
             return err(f"invalid status {body.status!r}", 400)
+        if body.dismiss_reason and body.dismiss_reason not in appdb.DISMISS_REASONS:
+            return err(f"invalid dismiss_reason {body.dismiss_reason!r}", 400)
         if body.next_action_at:
             if not DATE_RE.match(body.next_action_at):
                 return err("next_action_at must be a YYYY-MM-DD date", 400)
@@ -265,6 +269,12 @@ def create_app(db_path=None, cfg=None, config_path=None):
             sets, params = ["updated_at=?"], [appdb.now_iso()]
             if body.status is not None:
                 sets.append("status=?"); params.append(body.status)
+            # a reason explains a dismissal, so moving off dismissed retires it —
+            # and that wins over any reason sent in the same request
+            if body.status is not None and body.status != "dismissed":
+                sets.append("dismiss_reason=NULL")
+            elif body.dismiss_reason is not None:
+                sets.append("dismiss_reason=?"); params.append(body.dismiss_reason or None)
             if body.starred is not None:
                 sets.append("starred=?"); params.append(int(body.starred))
             if body.note is not None:
@@ -278,8 +288,8 @@ def create_app(db_path=None, cfg=None, config_path=None):
             conn.execute(f"UPDATE job_state SET {', '.join(sets)} WHERE key=?", params)
             conn.commit()
             row = conn.execute(
-                """SELECT key, status, starred, note, next_action_at, next_action_note
-                   FROM job_state WHERE key=?""", (key,)).fetchone()
+                """SELECT key, status, starred, note, next_action_at, next_action_note,
+                          dismiss_reason FROM job_state WHERE key=?""", (key,)).fetchone()
             return ok({**dict(row), "starred": bool(row["starred"])})
         finally:
             conn.close()

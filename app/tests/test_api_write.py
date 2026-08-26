@@ -47,6 +47,39 @@ def test_patch_rejects_malformed_next_action_date(client):
     assert r.status_code == 400 and r.json()["ok"] is False
 
 
+def test_patch_records_a_dismiss_reason(client):
+    r = client.patch("/api/jobs/k1", json={"status": "dismissed", "dismiss_reason": "comp"})
+    assert r.json()["ok"] is True
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["status"] == "dismissed" and j["dismiss_reason"] == "comp"
+
+
+def test_patch_rejects_a_reason_outside_the_vocabulary(client):
+    r = client.patch("/api/jobs/k1", json={"status": "dismissed", "dismiss_reason": "vibes"})
+    assert r.status_code == 400 and r.json()["ok"] is False
+
+
+def test_dismissing_without_a_reason_stays_allowed(client):
+    client.patch("/api/jobs/k1", json={"status": "dismissed"})
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["status"] == "dismissed" and j["dismiss_reason"] is None
+
+
+def test_undismissing_clears_the_reason_it_no_longer_explains(client):
+    client.patch("/api/jobs/k1", json={"status": "dismissed", "dismiss_reason": "rto"})
+    client.patch("/api/jobs/k1", json={"status": "interested"})
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["status"] == "interested" and j["dismiss_reason"] is None
+
+
+def test_starring_a_dismissed_job_leaves_its_reason_intact(client):
+    # only a status change away from dismissed invalidates the reason
+    client.patch("/api/jobs/k1", json={"status": "dismissed", "dismiss_reason": "level"})
+    client.patch("/api/jobs/k1", json={"starred": True})
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["dismiss_reason"] == "level"
+
+
 def test_patch_unknown_key_404(client):
     r = client.patch("/api/jobs/nope", json={"status": "applied"})
     assert r.status_code == 404 and r.json()["ok"] is False
