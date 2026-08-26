@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Job } from "../lib/types";
 import { JobDrawer } from "./JobDrawer";
@@ -129,5 +129,41 @@ describe("JobDrawer composite score display", () => {
   it("widens the stale message to rubric changes", () => {
     drawer({ ...BASE, fit: 82, subscores: { comp: 95 }, stale: true }, 82, []);
     expect(screen.getByText(/profile or rubric changed since scoring/)).toBeInTheDocument();
+  });
+});
+
+describe("JobDrawer layout", () => {
+  const drawer = () => {
+    const qc = new QueryClient();
+    return render(
+      <QueryClientProvider client={qc}>
+        <JobDrawer job={BASE} open onClose={noop} onStatus={noop} onStar={noop}
+          onNote={noop} onScoreNow={noop} deepDiveRequested={false} onDeepDiveHandled={noop}
+          score={null} dimensions={[]} />
+      </QueryClientProvider>,
+    );
+  };
+
+  // The panel slides in by a percentage of its own width, so a width change can no
+  // longer strand it off-screen the way a hard-coded 480px translate could.
+  it("settles the panel flush against the right edge rather than parked off-screen", async () => {
+    const { container } = drawer();
+    const aside = container.querySelector("aside")!;
+    expect(aside.style.transform).toContain("100%");
+    await act(() => new Promise((r) => setTimeout(r, 600)));
+    expect(aside.style.transform).toBe("none");
+  });
+
+  // The deep dive runs to six sections; if it scrolls inside its own box the drawer
+  // shows a sliver of it, and if the header scrolls away the triage buttons go with it.
+  it("scrolls the body only, keeping the header and its status actions pinned", () => {
+    const { container } = drawer();
+    const aside = container.querySelector("aside")!;
+    const header = aside.querySelector("header")!;
+
+    expect(header.className).toContain("shrink-0");
+    expect(screen.getByRole("button", { name: "Interested" }).closest("header")).toBe(header);
+    expect(aside.className).toContain("overflow-hidden");
+    expect(aside.querySelectorAll(".overflow-y-auto")).toHaveLength(1);
   });
 });
