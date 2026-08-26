@@ -1,5 +1,5 @@
-import type { Company, Currency, DimensionEdit, DimensionsPayload, Health, Job, JobFacts, MinLevel,
-              Profile, Settings, Stats, Status, TestCompanyResult } from "./types";
+import type { Company, Currency, DetectCompanyResult, DimensionEdit, DimensionsPayload, Health, Job,
+              JobFacts, MinLevel, Profile, Settings, Stats, Status, TestCompanyResult } from "./types";
 
 interface Envelope<T> {
   ok: boolean;
@@ -63,6 +63,8 @@ export const putSettings = (s: Settings) =>
   call<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(s) });
 export const testCompany = (c: Company) =>
   call<TestCompanyResult>("/api/settings/test-company", { method: "POST", body: JSON.stringify(c) });
+export const detectCompany = (url: string) =>
+  call<DetectCompanyResult>("/api/companies/detect", { method: "POST", body: JSON.stringify({ url }) });
 
 export async function extractResume(file: File): Promise<string> {
   // no JSON content-type here: the browser must set the multipart boundary itself

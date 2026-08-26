@@ -11,7 +11,7 @@
 
 ## Files
 
-- `watcher.py` — the poller (Ashby / Lever / Workable / Workday adapters)
+- `watcher.py` — the poller (Ashby / Lever / Greenhouse / Workable / Workday adapters)
 - `config.json` — companies, filters, ntfy topic
 - `watcher.db` — SQLite: every job ever seen (`jobs`), poll history (`runs`)
 - **`job-board.html`** — **the full catalog.** Every currently open matched job, searchable and sortable. This is your desktop shortcut "Job Board" — open it any time to browse.
@@ -60,7 +60,12 @@ Until then, the daily digest files and Monday brief still work — you just won'
 
 ## Common tweaks (all in `config.json`)
 
-- **Add a company:** new entry under `companies` with `adapter` = `ashby`/`lever`/`workable` and its `slug` (find it in the careers-page URL: `jobs.ashbyhq.com/{slug}`, `jobs.lever.co/{slug}`), or `workday` with `tenant`/`wd`/`site`.
+- **Add a company:** new entry under `companies` with `adapter` = `ashby`/`lever`/`greenhouse`/`workable`
+  and its `slug` (find it in the careers-page URL: `jobs.ashbyhq.com/{slug}`, `jobs.lever.co/{slug}`,
+  `boards.greenhouse.io/{slug}` or the newer `job-boards.greenhouse.io/{slug}`), or `workday` with
+  `tenant`/`wd`/`site`. From the app's Settings tab you can also paste a job posting or careers URL
+  and let it detect the adapter and slug/tenant for you — it's pure URL parsing, so double-check the
+  result with "Test fetch" before saving.
 - **Too much noise / too quiet:** edit `filters.title_domain`, `title_seniority` (a title must hit one of each), `title_exclude`, and the location lists.
 - **Run manually anytime:**
   `python watcher/watcher.py` (from the repo root; add `--dry-run` to poll and print without saving)

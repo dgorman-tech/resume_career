@@ -1,0 +1,29 @@
+{
+  "jobs": [
+    {
+      "id": 4020123,
+      "title": "Senior Data Engineer",
+      "updated_at": "2026-08-20T09:15:00-04:00",
+      "location": { "name": "Dublin, Ireland" },
+      "absolute_url": "https://boards.greenhouse.io/examplecorp/jobs/4020123",
+      "content": "<div><p>We are looking for a Senior Data Engineer to join our team in Dublin.</p><p>Compensation: $120,000 - $150,000 USD annually, depending on experience.</p></div>"
+    },
+    {
+      "id": 4020456,
+      "title": "Product Manager",
+      "updated_at": "2026-08-18T09:15:00-04:00",
+      "location": { "name": "Remote - Ireland" },
+      "absolute_url": "https://boards.greenhouse.io/examplecorp/jobs/4020456",
+      "content": "<div><p>Own the roadmap for our core product.</p><ul><li>5+ years experience</li></ul></div>"
+    },
+    {
+      "id": 4020789,
+      "title": "Support Engineer",
+      "updated_at": "2026-08-17T09:15:00-04:00",
+      "location": { "name": "Dublin, Ireland" },
+      "absolute_url": "https://boards.greenhouse.io/examplecorp/jobs/4020789",
+      "content": "&lt;h2&gt;&lt;strong&gt;About the role&lt;/strong&gt;&lt;/h2&gt;&lt;p&gt;Support customers &amp;amp; ship fixes.&lt;/p&gt;&lt;p&gt;Compensation: $95,000 - $110,000&lt;/p&gt;"
+    }
+  ],
+  "meta": { "total": 3 }
+}

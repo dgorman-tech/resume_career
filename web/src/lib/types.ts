@@ -122,7 +122,7 @@ export interface Profile {
 export interface SlugCompany {
   name: string;
   tier: number;
-  adapter: "ashby" | "lever" | "workable";
+  adapter: "ashby" | "lever" | "greenhouse" | "workable";
   slug: string;
 }
 
@@ -172,6 +172,21 @@ export interface Settings {
 export interface TestCompanyResult {
   jobs_found: number;
   sample_titles: string[];
+}
+
+/** Result of POST /api/companies/detect — pure URL parsing, no live fetch.
+ *  `recognized` false means an honest "couldn't tell" (see `message`), never
+ *  a guess. Only the fields relevant to the detected adapter are non-null. */
+export interface DetectCompanyResult {
+  recognized: boolean;
+  adapter: AdapterName | null;
+  slug: string | null;
+  tenant: string | null;
+  wd: string | null;
+  site: string | null;
+  host: string | null;
+  suggested_name: string | null;
+  message: string;
 }
 
 export interface Health {

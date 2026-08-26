@@ -164,7 +164,7 @@ def test_put_settings_rejects_company_missing_slug(client):
 
 def test_put_settings_rejects_unknown_adapter(client):
     bad = {**EDIT_BODY,
-           "companies": [{"name": "X", "tier": 1, "adapter": "greenhouse", "slug": "x"}]}
+           "companies": [{"name": "X", "tier": 1, "adapter": "bamboohr", "slug": "x"}]}
     resp = client.put("/api/settings", json=bad)
     assert resp.status_code == 400
     assert "adapter" in resp.json()["error"]

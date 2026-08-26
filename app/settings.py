@@ -9,6 +9,7 @@ import os
 import re
 import tempfile
 from typing import Annotated, Literal, Optional, Union
+from urllib.parse import unquote, urlsplit
 
 from fastapi import APIRouter, Request
 from pydantic import (BaseModel, ConfigDict, Field, TypeAdapter, ValidationError,
@@ -35,7 +36,7 @@ class SlugCompany(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1)
     tier: int = Field(ge=1, le=9)
-    adapter: Literal["ashby", "lever", "workable"]
+    adapter: Literal["ashby", "lever", "greenhouse", "workable"]
     slug: str = Field(pattern=URL_TOKEN)
 
 
@@ -181,6 +182,103 @@ def _load_watcher():
         sys.path.insert(0, wdir)
     import watcher
     return watcher
+
+
+# ------------------------------------------------------- paste-a-URL detection
+# Pure string/regex parsing of a pasted job-posting or careers-board URL into an
+# adapter + slug/tenant/host guess. No network call, ever — the user reviews and
+# hits the existing "Test fetch" button (test_company, below) for a live check.
+
+GREENHOUSE_HOSTS = ("boards.greenhouse.io", "job-boards.greenhouse.io")
+SLUG_HOSTS = {"jobs.ashbyhq.com": "ashby", "jobs.lever.co": "lever",
+              "apply.workable.com": "workable",
+              **{host: "greenhouse" for host in GREENHOUSE_HOSTS}}
+WORKDAY_HOST_RE = re.compile(r"^([a-z0-9-]+)\.(wd\d+)\.myworkdayjobs\.com$")
+LOCALE_SEGMENT_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$", re.IGNORECASE)
+# SuccessFactors RMK career sites live on arbitrary customer domains — there's no
+# shared hostname to key off, so the only honest signal is the distinctive
+# /job/<slug>/<numeric-id>/ path their postings (and RSS feed links) both use.
+SF_JOB_PATH_RE = re.compile(r"^/job/[^/]+/\d+/?$", re.IGNORECASE)
+_TOKEN_RE = re.compile(URL_TOKEN)
+_HOSTNAME_RE = re.compile(HOSTNAME)
+
+
+class DetectResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recognized: bool
+    adapter: Optional[str] = None
+    slug: Optional[str] = None
+    tenant: Optional[str] = None
+    wd: Optional[str] = None
+    site: Optional[str] = None
+    host: Optional[str] = None
+    suggested_name: Optional[str] = None
+    message: str
+
+
+def _unrecognized(message="couldn't recognize that as a known job board URL"):
+    return DetectResult(recognized=False, message=message)
+
+
+def _titleize(token):
+    words = [w for w in re.split(r"[-_]+", token) if w]
+    return " ".join(w[:1].upper() + w[1:] for w in words) if words else None
+
+
+def detect_company_url(raw_url):
+    """Best-effort adapter/slug guess from a pasted URL. Pure parsing: no
+    network access, and a host that fails reject_private_hosts's own check
+    is never proposed, even if its path happens to look like a known shape."""
+    if not isinstance(raw_url, str):
+        return _unrecognized("paste a job posting or careers-page URL")
+    raw = raw_url.strip()
+    if not raw:
+        return _unrecognized("paste a job posting or careers-page URL")
+    candidate = raw if "://" in raw else f"https://{raw}"
+    try:
+        parsed = urlsplit(candidate)
+        host = (parsed.hostname or "").lower()
+    except (ValueError, UnicodeError):
+        return _unrecognized("that doesn't look like a valid URL")
+    if not host:
+        return _unrecognized("that doesn't look like a valid URL")
+    if PRIVATE_HOST.match(host):
+        return _unrecognized("private/internal hosts aren't supported")
+
+    segments = [unquote(p) for p in parsed.path.split("/") if p]
+
+    if host in SLUG_HOSTS:
+        adapter = SLUG_HOSTS[host]
+        slug = segments[0] if segments else ""
+        if not _TOKEN_RE.match(slug):
+            return _unrecognized(f"recognized {adapter}, but couldn't find a company slug in that URL")
+        return DetectResult(recognized=True, adapter=adapter, slug=slug,
+                            suggested_name=_titleize(slug), message=f"recognized as {adapter}")
+
+    m = WORKDAY_HOST_RE.match(host)
+    if m:
+        tenant, wd = m.group(1), m.group(2)
+        segs = segments[1:] if (segments and LOCALE_SEGMENT_RE.match(segments[0])
+                                and len(segments) > 1) else segments
+        site = segs[0] if segs else ""
+        if not _TOKEN_RE.match(tenant) or not _TOKEN_RE.match(site):
+            return _unrecognized("recognized workday, but couldn't find a site name in that URL")
+        return DetectResult(recognized=True, adapter="workday", tenant=tenant, wd=wd, site=site,
+                            suggested_name=_titleize(tenant), message="recognized as workday")
+
+    if _HOSTNAME_RE.match(host) and SF_JOB_PATH_RE.match(parsed.path or ""):
+        return DetectResult(recognized=True, adapter="successfactors_rmk", host=host,
+                            message="recognized as a SuccessFactors (RMK) career site — "
+                                    "its RSS search feeds still need to be added by hand")
+
+    return _unrecognized()
+
+
+@router.post("/api/companies/detect")
+def detect_company(body: dict):
+    from app.app import ok
+    result = detect_company_url(body.get("url", ""))
+    return ok(result.model_dump())
 
 
 @router.post("/api/settings/test-company")

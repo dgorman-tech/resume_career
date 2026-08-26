@@ -8,6 +8,7 @@ Run:  python watcher.py            (normal poll)
       python watcher.py --dry-run  (poll + print, no DB writes, no ntfy)
 """
 
+import html
 import json
 import re
 import sqlite3
@@ -128,6 +129,9 @@ def location_matches(location, filters):
 # ----------------------------------------------------------------- adapters
 # Each adapter returns a list of dicts:
 # {job_id, title, location, url, posted_at, salary_min, salary_max, salary_raw}
+# Some (greenhouse, successfactors_rmk) also include "jd_text": the full JD came
+# free with the listing, so scoring/fact-extraction can use it inline with no
+# extra fetch.
 
 def fetch_ashby(session, cfg, company):
     url = f"https://api.ashbyhq.com/posting-api/job-board/{company['slug']}?includeCompensation=true"
@@ -199,6 +203,28 @@ def fetch_workable(session, cfg, company):
     return jobs
 
 
+def fetch_greenhouse(session, cfg, company):
+    url = f"https://boards-api.greenhouse.io/v1/boards/{company['slug']}/jobs?content=true"
+    data = fetch(session, cfg, "GET", url).json()
+    jobs = []
+    for j in data.get("jobs", []):
+        jd_text = _strip_html(j.get("content") or "")
+        lo, hi = parse_salary_text(jd_text)
+        loc = j.get("location") or {}
+        jobs.append({
+            "job_id": str(j.get("id", "")),
+            "title": j.get("title", ""),
+            "location": loc.get("name", "") if isinstance(loc, dict) else "",
+            "url": j.get("absolute_url", ""),
+            "posted_at": (j.get("updated_at") or "")[:10],
+            # content is the full JD, not a short compensation blurb — the parsed
+            # figures are trustworthy (parse_salary_text), a verbatim raw quote isn't
+            "salary_min": lo, "salary_max": hi, "salary_raw": "",
+            "jd_text": jd_text,
+        })
+    return jobs
+
+
 def fetch_workday(session, cfg, company):
     tenant, wd, site = company["tenant"], company["wd"], company["site"]
     base = f"https://{tenant}.{wd}.myworkdayjobs.com"
@@ -235,11 +261,23 @@ def fetch_workday(session, cfg, company):
     return jobs
 
 
-def _rmk_strip_html(html):
-    text = re.sub(r"<img[^>]*>", " ", html)
+def _strip_html(raw):
+    # Decode entities first, then strip tags: SF RMK's RSS <description> is
+    # already real HTML with a few entities in it, but Greenhouse's `content`
+    # field is HTML *escaped* as text (literal "&lt;h2&gt;") — and, in practice,
+    # sometimes escaped twice (a literal "&amp;nbsp;" for what was "&nbsp;" in
+    # the underlying HTML). Unescape to a fixed point so either case comes out
+    # clean, then strip the now-real tags.
+    text = raw or ""
+    for _ in range(3):
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"<img[^>]*>", " ", text)
     text = re.sub(r"</(p|li|ul|ol|div|br|h\d)>", "\n", text)
     text = re.sub(r"<[^>]+>", " ", text)
-    text = text.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     return re.sub(r"[ \t]+", " ", text).strip()
 
 
@@ -275,14 +313,14 @@ def fetch_successfactors_rmk(session, cfg, company):
                 "job_id": m.group(1), "title": title, "location": loc,
                 "url": link.split("?")[0], "posted_at": posted,
                 "salary_min": None, "salary_max": None, "salary_raw": "",
-                "jd_text": _rmk_strip_html(item.findtext("description") or ""),
+                "jd_text": _strip_html(item.findtext("description") or ""),
             })
         if i < len(company.get("feeds", [])) - 1:
             time.sleep(cfg.get("delay_between_requests_seconds", 1.5))
     return jobs
 
 
-ADAPTERS = {"ashby": fetch_ashby, "lever": fetch_lever,
+ADAPTERS = {"ashby": fetch_ashby, "lever": fetch_lever, "greenhouse": fetch_greenhouse,
             "workable": fetch_workable, "workday": fetch_workday,
             "successfactors_rmk": fetch_successfactors_rmk}
 

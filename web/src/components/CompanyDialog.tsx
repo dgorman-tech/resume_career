@@ -1,8 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { testCompany } from "../lib/api";
-import type { AdapterName, Company, TestCompanyResult } from "../lib/types";
+import { detectCompany, testCompany } from "../lib/api";
+import type { AdapterName, Company, DetectCompanyResult, TestCompanyResult } from "../lib/types";
 
 interface Props {
   open: boolean;
@@ -11,12 +11,20 @@ interface Props {
   onClose: () => void;
 }
 
-const ADAPTERS: AdapterName[] = ["ashby", "lever", "workable", "workday", "successfactors_rmk"];
+const ADAPTERS: AdapterName[] =
+  ["ashby", "lever", "greenhouse", "workable", "workday", "successfactors_rmk"];
+const SLUG_ADAPTERS: AdapterName[] = ["ashby", "lever", "greenhouse", "workable"];
 
 type TestState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "done"; result: TestCompanyResult }
+  | { kind: "failed"; error: string };
+
+type DetectState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "done"; result: DetectCompanyResult }
   | { kind: "failed"; error: string };
 
 const joinTerms = (terms?: string[]) => (terms ?? []).filter(Boolean).join(", ");
@@ -35,10 +43,14 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
   const [feeds, setFeeds] = useState("");
   const [location, setLocation] = useState("");
   const [test, setTest] = useState<TestState>({ kind: "idle" });
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [detect, setDetect] = useState<DetectState>({ kind: "idle" });
 
   useEffect(() => {
     if (!open) return;
     setTest({ kind: "idle" });
+    setPasteUrl("");
+    setDetect({ kind: "idle" });
     setAdapter(initial?.adapter ?? "ashby");
     setName(initial?.name ?? "");
     setTier(String(initial?.tier ?? 2));
@@ -83,6 +95,30 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
     }
   };
 
+  // Pure URL parsing on the server (no fetch happens here) — pre-fills the
+  // fields below so the person still reviews and confirms with Save.
+  const runDetect = async () => {
+    const url = pasteUrl.trim();
+    if (!url) return;
+    setDetect({ kind: "loading" });
+    try {
+      const result = await detectCompany(url);
+      setDetect({ kind: "done", result });
+      setTest({ kind: "idle" });
+      if (result.recognized && result.adapter) {
+        setAdapter(result.adapter);
+        setSlug(result.slug ?? "");
+        setTenant(result.tenant ?? "");
+        setWd(result.wd ?? "wd3");
+        setSite(result.site ?? "");
+        setHost(result.host ?? "");
+        if (result.suggested_name && !name.trim()) setName(result.suggested_name);
+      }
+    } catch (e) {
+      setDetect({ kind: "failed", error: (e as Error).message });
+    }
+  };
+
   const input = "field mt-0.5 w-full px-2.5 py-1.5 text-sm";
   const field = (label: string, value: string, set: (v: string) => void, hint?: string) => (
     <label className="block text-xs font-semibold text-ink-muted">
@@ -107,6 +143,40 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
                 <X className="size-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
+            {/* Outside the form below on purpose: Enter here must trigger detection,
+                never a save. Adding a company from scratch means knowing what a
+                "slug" is and digging it out of a URL by hand — this skips that. */}
+            {!initial && (
+              <div className="mb-3 rounded-md border border-hairline p-2.5">
+                <label htmlFor="paste-url" className="block text-xs font-semibold text-ink-muted">
+                  Paste a job posting or careers-page URL
+                </label>
+                <div className="mt-0.5 flex gap-2">
+                  <input id="paste-url" value={pasteUrl}
+                    onChange={(e) => setPasteUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void runDetect(); } }}
+                    placeholder="https://jobs.example.com/…" className={`${input} mt-0`} />
+                  <button type="button" onClick={() => void runDetect()}
+                    disabled={!pasteUrl.trim() || detect.kind === "loading"}
+                    className="shrink-0 rounded-md border border-hairline px-3 py-1.5 text-sm text-ink transition hover:bg-sunken disabled:opacity-50">
+                    {detect.kind === "loading" ? "Detecting…" : "Detect"}
+                  </button>
+                </div>
+                {detect.kind === "done" && detect.result.recognized && (
+                  <p className="mt-2 text-xs text-teal-deep">
+                    Recognized as {detect.result.adapter} — review the fields below, then save.
+                  </p>
+                )}
+                {detect.kind === "done" && !detect.result.recognized && (
+                  <p className="mt-2 text-xs text-ink-muted">
+                    {detect.result.message || "Couldn't recognize that URL — fill in the fields manually below."}
+                  </p>
+                )}
+                {detect.kind === "failed" && (
+                  <p className="mt-2 text-xs text-red">{detect.error}</p>
+                )}
+              </div>
+            )}
             {/* A form, so Enter in any field saves. Adding a company is a dozen
                 keystrokes; it should not end with a hunt for the button. */}
             <form onSubmit={(e) => { e.preventDefault(); if (built) onSave(built); }}>
@@ -133,7 +203,7 @@ export function CompanyDialog({ open, initial, onSave, onClose }: Props) {
                   </select>
                 </label>
               </div>
-              {(adapter === "ashby" || adapter === "lever" || adapter === "workable") &&
+              {SLUG_ADAPTERS.includes(adapter) &&
                 field("Slug", slug, setSlug,
                       `the company id in its ${adapter} careers URL`)}
               {adapter === "workday" && (

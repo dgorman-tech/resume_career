@@ -5,6 +5,7 @@ import { CompanyDialog } from "./CompanyDialog";
 
 vi.mock("../lib/api", () => ({
   testCompany: vi.fn(),
+  detectCompany: vi.fn(),
 }));
 
 function renderDialog(props: Partial<Parameters<typeof CompanyDialog>[0]> = {}) {
@@ -92,5 +93,77 @@ describe("CompanyDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Test fetch" }));
 
     await waitFor(() => expect(screen.getByText(/fetch failed: 404/)).toBeInTheDocument());
+  });
+
+  it("offers greenhouse as a slug-based adapter", () => {
+    renderDialog();
+    fireEvent.change(screen.getByRole("combobox", { name: "Adapter" }),
+                     { target: { value: "greenhouse" } });
+    expect(screen.getByRole("textbox", { name: "Slug" })).toBeInTheDocument();
+  });
+
+  it("pre-fills fields from a recognized pasted URL, without saving", async () => {
+    const onSave = vi.fn();
+    vi.mocked(api.detectCompany).mockResolvedValue({
+      recognized: true, adapter: "greenhouse", slug: "acme", tenant: null, wd: null,
+      site: null, host: null, suggested_name: "Acme", message: "recognized as greenhouse",
+    });
+    renderDialog({ onSave });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Paste a job posting or careers-page URL" }),
+                     { target: { value: "https://boards.greenhouse.io/acme/jobs/123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    await waitFor(() => expect(screen.getByText(/Recognized as greenhouse/)).toBeInTheDocument());
+    expect(api.detectCompany).toHaveBeenCalledWith("https://boards.greenhouse.io/acme/jobs/123");
+    expect(screen.getByRole("combobox", { name: "Adapter" })).toHaveValue("greenhouse");
+    expect(screen.getByRole("textbox", { name: "Slug" })).toHaveValue("acme");
+    expect(screen.getByRole("textbox", { name: "Company name" })).toHaveValue("Acme");
+    // detecting only pre-fills the form; the user still has to hit Save
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("says plainly when a pasted URL isn't recognized, and leaves the form alone", async () => {
+    vi.mocked(api.detectCompany).mockResolvedValue({
+      recognized: false, adapter: null, slug: null, tenant: null, wd: null,
+      site: null, host: null, suggested_name: null,
+      message: "couldn't recognize that as a known job board URL",
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Paste a job posting or careers-page URL" }),
+                     { target: { value: "https://example.com/careers" } });
+    fireEvent.click(screen.getByRole("button", { name: "Detect" }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't recognize that as a known job board URL/)).toBeInTheDocument());
+    expect(screen.getByRole("combobox", { name: "Adapter" })).toHaveValue("ashby");
+    expect(screen.getByRole("textbox", { name: "Slug" })).toHaveValue("");
+  });
+
+  it("pressing Enter in the paste-url field detects instead of submitting the form", () => {
+    const onSave = vi.fn();
+    vi.mocked(api.detectCompany).mockResolvedValue({
+      recognized: false, adapter: null, slug: null, tenant: null, wd: null,
+      site: null, host: null, suggested_name: null, message: "not recognized",
+    });
+    renderDialog({ onSave });
+    // fill enough that the form would be saveable, to prove Enter here doesn't submit it
+    fireEvent.change(screen.getByRole("textbox", { name: "Company name" }),
+                     { target: { value: "Acme" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Slug" }), { target: { value: "acme" } });
+
+    const urlInput = screen.getByRole("textbox", { name: "Paste a job posting or careers-page URL" });
+    fireEvent.change(urlInput, { target: { value: "https://jobs.lever.co/acme" } });
+    fireEvent.keyDown(urlInput, { key: "Enter", code: "Enter" });
+
+    expect(api.detectCompany).toHaveBeenCalledWith("https://jobs.lever.co/acme");
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("hides the paste-url affordance when editing an existing company", () => {
+    renderDialog({ initial: { name: "Acme", tier: 1, adapter: "ashby", slug: "acme" } });
+    expect(screen.queryByRole("textbox", { name: "Paste a job posting or careers-page URL" }))
+      .not.toBeInTheDocument();
   });
 });
