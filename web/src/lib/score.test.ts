@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { makeJob } from "../test-utils/job";
 import type { Dimension, Job } from "./types";
 import { computeScore, scoreMap } from "./score";
 
@@ -6,12 +7,7 @@ const dim = (key: string, weight: number, archived = false): Dimension =>
   ({ key, label: key, description: "d", weight, position: 1, archived });
 
 const job = (fit: number | null, subscores: Record<string, number> | null): Job =>
-  ({ key: "k", company: "c", tier: 1, title: "t", location: "l", url: "u",
-     salary_min: null, salary_max: null, posted_at: "", first_seen: "", source: "s",
-     closed_at: null, is_internal: false, is_new: false, status: "new", starred: false, note: "",
-     next_action_at: null, next_action_note: "",
-     fit, subscores, why: null, gaps: null, angle: null, lens: null, scored_at: null,
-     stale: false, has_deep_dive: false });
+  makeJob({ fit, subscores });
 
 describe("computeScore", () => {
   it("weights holistic fit and subscores", () => {

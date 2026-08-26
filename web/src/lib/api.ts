@@ -30,7 +30,7 @@ export const patchJob = (
   key: string,
   patch: Partial<{
     status: Status; starred: boolean; note: string;
-    next_action_at: string; next_action_note: string;
+    next_action_at: string; next_action_note: string; dismiss_reason: string;
   }>,
 ) => call<unknown>(`/api/jobs/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const scoreJob = (key: string) =>

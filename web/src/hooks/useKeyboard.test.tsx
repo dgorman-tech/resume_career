@@ -14,6 +14,10 @@ function opts(overrides = {}) {
     toggleStar: vi.fn(),
     startDeepDive: vi.fn(),
     setFollowUp: vi.fn(),
+    dismissPending: false,
+    startDismiss: vi.fn(),
+    pickDismissReason: vi.fn(),
+    cancelDismiss: vi.fn(),
     focusSearch: vi.fn(),
     toggleHelp: vi.fn(),
     ...overrides,
@@ -73,6 +77,59 @@ describe("useKeyboard", () => {
 
     expect(document.activeElement).toBe(tr);
     table.remove();
+  });
+
+  it("x asks for a reason instead of dismissing outright", () => {
+    const o = opts();
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "x" });
+    expect(o.startDismiss).toHaveBeenCalledWith("a1");
+    expect(o.setStatus).not.toHaveBeenCalled();
+  });
+
+  it("a number key picks the reason, so dismissing costs two keystrokes", () => {
+    const o = opts({ dismissPending: true });
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "1" });
+    expect(o.pickDismissReason).toHaveBeenCalledWith("comp");
+  });
+
+  it("maps each number to its own reason", () => {
+    const o = opts({ dismissPending: true });
+    renderHook(() => useKeyboard(o));
+    for (const k of ["2", "3", "4", "5", "6"]) fireEvent.keyDown(window, { key: k });
+    expect(o.pickDismissReason.mock.calls.flat()).toEqual(
+      ["rto", "level", "domain", "company", "other"]);
+  });
+
+  it("x again dismisses without a reason, so the picker is never a dead end", () => {
+    const o = opts({ dismissPending: true });
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "x" });
+    expect(o.pickDismissReason).toHaveBeenCalledWith(null);
+  });
+
+  it("Escape abandons the dismissal entirely", () => {
+    const o = opts({ dismissPending: true });
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(o.cancelDismiss).toHaveBeenCalled();
+    expect(o.pickDismissReason).not.toHaveBeenCalled();
+    expect(o.setDrawerOpen).not.toHaveBeenCalled();
+  });
+
+  it("holds j/k still while a reason is pending, so the answer lands on the right job", () => {
+    const o = opts({ dismissPending: true });
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "j" });
+    expect(o.setSelectedKey).not.toHaveBeenCalled();
+  });
+
+  it("ignores number keys when no dismissal is pending", () => {
+    const o = opts();
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "1" });
+    expect(o.pickDismissReason).not.toHaveBeenCalled();
   });
 
   it("ignores keys while typing in an input", () => {

@@ -90,6 +90,18 @@ describe("GearDialog backfill polling", () => {
   });
 });
 
+describe("GearDialog Gemini disclosure", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("states what the bulk scoring button sends, before it is pressed", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(HEALTH);
+    renderDialog(true, vi.fn());
+    await screen.findByRole("button", { name: /score all unscored/i });
+    expect(screen.getByText(/sends your profile, rubric, and .*description.* to gemini/i))
+      .toBeInTheDocument();
+  });
+});
+
 describe("GearDialog stale re-scoring", () => {
   afterEach(() => vi.clearAllMocks());
 
@@ -108,7 +120,8 @@ describe("GearDialog stale re-scoring", () => {
     fireEvent.click(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }));
 
     expect(api.rescoreStale).not.toHaveBeenCalled();
-    expect(await screen.findByText(/sends .*gemini/i)).toBeInTheDocument();
+    // the confirmation's own wording, not merely any mention of Gemini on screen
+    expect(await screen.findByText(/predate your current profile/i)).toBeInTheDocument();
   });
 
   it("re-scores once confirmed", async () => {
@@ -130,7 +143,8 @@ describe("GearDialog stale re-scoring", () => {
     fireEvent.click(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }));
     fireEvent.click(await screen.findByRole("button", { name: /cancel/i }));
 
-    await waitFor(() => expect(screen.queryByText(/sends .*gemini/i)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText(/predate your current profile/i)).not.toBeInTheDocument());
     expect(api.rescoreStale).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,8 @@ import { Check, ExternalLink, Star, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "clsx";
 import type { Dimension, Job, Status } from "../lib/types";
+import { SCORING_DISCLOSURE } from "../lib/disclosure";
+import { dismissLabel } from "../lib/dismiss";
 import { fmtSalary } from "../lib/format";
 import { Badges } from "./Badges";
 import { DeepDivePanel } from "./DeepDivePanel";
@@ -163,10 +165,13 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
             <div className="mt-4 flex items-center gap-3">
               <ScoreDial value={score} size={44} />
               {job.fit == null ? (
-                <button onClick={() => onScoreNow(job.key)}
-                  className="rounded-md bg-teal px-3 py-1 text-xs font-semibold text-paper transition hover:bg-teal-deep">
-                  Score now
-                </button>
+                <div>
+                  <button onClick={() => onScoreNow(job.key)}
+                    className="rounded-md bg-teal px-3 py-1 text-xs font-semibold text-paper transition hover:bg-teal-deep">
+                    Score now
+                  </button>
+                  <p className="mt-1 max-w-[42ch] text-[11px] text-ink-muted">{SCORING_DISCLOSURE}</p>
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   <span className="rounded-sm bg-sunken px-1.5 py-0.5 font-mono text-[10px] font-medium text-ink">
@@ -199,6 +204,11 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
               {action(<Check className="size-3.5" aria-hidden="true" />, "Applied", job.status === "applied",
                 job.status === "applied" ? "border-transparent bg-teal text-paper" : "border-hairline text-ink-muted hover:text-ink",
                 () => onStatus(job.key, "applied"))}
+              {job.status === "dismissed" && dismissLabel(job.dismiss_reason) && (
+                <span className="text-xs text-ink-muted">
+                  Dismissed: {dismissLabel(job.dismiss_reason)}
+                </span>
+              )}
               <button onClick={() => onStar(job.key, !job.starred)} aria-pressed={job.starred}
                 aria-label={job.starred ? "Starred" : "Star this job"}
                 className={clsx("icon-btn ml-auto", job.starred && "text-teal hover:text-teal")}>

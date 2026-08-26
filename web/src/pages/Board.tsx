@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { BoardTable, DEFAULT_SORT, sortJobs, type Sort } from "../components/BoardTable";
+import { DismissReasonBar } from "../components/DismissReasonBar";
 import { DEFAULT_FILTERS, FilterBar, type Filters } from "../components/FilterBar";
 import { JobDrawer } from "../components/JobDrawer";
 import { KeyboardHelp } from "../components/KeyboardHelp";
@@ -10,9 +11,10 @@ import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
 import { getDimensions, scoreJob } from "../lib/api";
+import type { DismissReason } from "../lib/dismiss";
 import { attentionReason, orderByAttention, todayISO } from "../lib/nextAction";
 import { scoreMap } from "../lib/score";
-import type { DimensionsPayload, Job } from "../lib/types";
+import type { DimensionsPayload, Job, Status } from "../lib/types";
 
 export function applyFilters(jobs: Job[], f: Filters, today: string): Job[] {
   const q = f.q.trim().toLowerCase();
@@ -41,6 +43,7 @@ export default function Board() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [deepDiveRequested, setDeepDiveRequested] = useState(false);
   const [followUpRequested, setFollowUpRequested] = useState(false);
+  const [dismissKey, setDismissKey] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const dimsQuery = useQuery({ queryKey: ["dimensions"], queryFn: getDimensions });
@@ -67,6 +70,26 @@ export default function Board() {
   );
   const selected = visible.find((j) => j.key === selectedKey) ?? (jobs ?? []).find((j) => j.key === selectedKey) ?? null;
 
+  // Every route to 'dismissed' — the x key, the row pill, the drawer button —
+  // goes through the reason picker, so the labelled data does not depend on
+  // which control the user happened to reach for.
+  const onStatus = (key: string, status: Status) => {
+    if (status === "dismissed") setDismissKey(key);
+    else patch(key, { status });
+  };
+
+  const pickDismissReason = (reason: DismissReason | null) => {
+    if (dismissKey) {
+      patch(dismissKey, reason ? { status: "dismissed", dismiss_reason: reason }
+                               : { status: "dismissed" });
+    }
+    setDismissKey(null);
+  };
+
+  const dismissing = dismissKey
+    ? ((jobs ?? []).find((j) => j.key === dismissKey) ?? null)
+    : null;
+
   const onScoreNow = (key: string) => {
     toast.promise(scoreJob(key).then(() => qc.invalidateQueries({ queryKey: ["jobs"] })), {
       loading: "Scoring…", success: "Scored", error: (e) => (e as Error).message,
@@ -80,13 +103,17 @@ export default function Board() {
     setSelectedKey,
     drawerOpen,
     setDrawerOpen,
-    setStatus: (key, status) => patch(key, { status }),
+    setStatus: onStatus,
     toggleStar: (key) => {
       const j = (jobs ?? []).find((x) => x.key === key);
       if (j) patch(key, { starred: !j.starred });
     },
     startDeepDive: () => setDeepDiveRequested(true),
     setFollowUp: () => setFollowUpRequested(true),
+    dismissPending: dismissKey != null,
+    startDismiss: (key) => setDismissKey(key),
+    pickDismissReason,
+    cancelDismiss: () => setDismissKey(null),
     focusSearch: () => searchRef.current?.focus(),
     toggleHelp: () => setHelpOpen((h) => !h),
   });
@@ -124,7 +151,7 @@ export default function Board() {
           onSelect={(k) => { setSelectedKey(k); setDrawerOpen(true); }}
           sort={sort}
           setSort={setSort}
-          onStatus={(key, status) => patch(key, { status })}
+          onStatus={onStatus}
           scores={scores}
           today={today}
         />
@@ -133,7 +160,7 @@ export default function Board() {
         job={selected}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onStatus={(key, s) => patch(key, { status: s })}
+        onStatus={onStatus}
         onStar={(key, starred) => patch(key, { starred })}
         onNote={(key, note) => patch(key, { note })}
         onNextAction={(key, p) => patch(key, p)}
@@ -144,6 +171,13 @@ export default function Board() {
         onFollowUpHandled={() => setFollowUpRequested(false)}
         score={selected ? (scores.get(selected.key) ?? null) : null}
         dimensions={activeDims}
+      />
+      <DismissReasonBar
+        open={dismissing != null}
+        title={dismissing?.title ?? ""}
+        company={dismissing?.company ?? ""}
+        onPick={pickDismissReason}
+        onCancel={() => setDismissKey(null)}
       />
       <KeyboardHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

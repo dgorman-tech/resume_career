@@ -46,6 +46,8 @@ export interface Job {
   /** local calendar day (YYYY-MM-DD), not an instant */
   next_action_at: string | null;
   next_action_note: string;
+  /** only meaningful while status is 'dismissed'; cleared when it changes */
+  dismiss_reason: string | null;
   fit: number | null;
   subscores: Subscores | null;
   why: string | null;

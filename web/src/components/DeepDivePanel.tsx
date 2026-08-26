@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import { toast } from "sonner";
 import { deepDive } from "../lib/api";
+import { DEEP_DIVE_DISCLOSURE } from "../lib/disclosure";
 
 type Phase = "idle" | "streaming" | "done" | "error";
 
@@ -62,6 +63,7 @@ export function DeepDivePanel({ jobKey, hasExisting, autoStart, onStarted }: {
           {phase === "streaming" ? "Analyzing…" : hasExisting || phase === "done" ? "Re-run" : "Deep dive"}
         </button>
       </div>
+      <p className="mb-2 max-w-[52ch] text-[11px] text-ink-muted">{DEEP_DIVE_DISCLOSURE}</p>
       {text && (
         <div className="md-body max-h-96 overflow-auto rounded-md border border-hairline bg-paper p-3 text-[13px] leading-relaxed">
           <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{text}</ReactMarkdown>

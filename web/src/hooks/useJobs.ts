@@ -5,7 +5,7 @@ import type { Job, Status } from "../lib/types";
 
 export type JobPatch = Partial<{
   status: Status; starred: boolean; note: string;
-  next_action_at: string; next_action_note: string;
+  next_action_at: string; next_action_note: string; dismiss_reason: string;
 }>;
 
 export function useJobs() {

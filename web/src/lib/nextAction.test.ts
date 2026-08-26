@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { attentionReason, nextActionState, orderByAttention, partitionAttention, todayISO } from "./nextAction";
+import { makeJob } from "../test-utils/job";
 import type { Job } from "./types";
 
 const TODAY = "2026-08-25";
 
-const job = (over: Partial<Job> = {}): Job => ({
-  key: "k", company: "Wealthsimple", tier: 1, title: "Manager, AE", location: "Toronto",
-  url: "", salary_min: null, salary_max: null, posted_at: "", first_seen: "", source: "ashby",
-  closed_at: null, is_internal: false, is_new: false, status: "new", starred: false, note: "",
-  next_action_at: null, next_action_note: "", fit: null, subscores: null, why: null, gaps: null,
-  angle: null, lens: null, scored_at: null, stale: false, has_deep_dive: false, ...over,
-});
+const job = (over: Partial<Job> = {}): Job => makeJob({ company: "Wealthsimple", ...over });
 
 describe("nextActionState", () => {
   it("has no state when no follow-up is set", () => {

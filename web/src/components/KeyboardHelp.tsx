@@ -3,7 +3,8 @@ import { X } from "lucide-react";
 
 const KEYS: Array<[string[], string]> = [
   [["j", "k"], "move selection"], [["Enter", "o"], "open drawer"], [["Esc"], "close drawer"],
-  [["i"], "mark interested"], [["x"], "dismiss"], [["a"], "mark applied"], [["s"], "star"],
+  [["i"], "mark interested"], [["x"], "dismiss (then 1–6 for a reason)"],
+  [["a"], "mark applied"], [["s"], "star"],
   [["d"], "deep dive"], [["f"], "set follow-up date"],
   [["/"], "focus search"], [["?"], "this help"],
 ];

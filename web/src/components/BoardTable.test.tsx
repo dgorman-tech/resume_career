@@ -1,17 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { makeJob } from "../test-utils/job";
 import type { Job } from "../lib/types";
 import { BoardTable, COLS, DEFAULT_SORT, sortJobs } from "./BoardTable";
 
 const TODAY = "2026-08-25";
 
 const j = (key: string, tier = 1, over: Partial<Job> = {}): Job =>
-  ({ key, company: "c", tier, title: "t", location: "l", url: "u",
-     salary_min: null, salary_max: null, posted_at: "", first_seen: "", source: "s",
-     closed_at: null, is_internal: false, is_new: false, status: "new", starred: false, note: "",
-     next_action_at: null, next_action_note: "",
-     fit: null, subscores: null, why: null, gaps: null, angle: null, lens: null,
-     scored_at: null, stale: false, has_deep_dive: false, ...over });
+  makeJob({ key, tier, ...over });
 
 function noop() {}
 

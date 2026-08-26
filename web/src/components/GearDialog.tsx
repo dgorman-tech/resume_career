@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { getHealth, getScoringStatus, rescoreStale, scoreUnscored } from "../lib/api";
+import { BULK_SCORING_DISCLOSURE } from "../lib/disclosure";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export function GearDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -82,6 +83,7 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
             >
               {progress ? `Scoring… ${progress.done}/${progress.total}` : `Score all unscored (${health?.unscored ?? 0})`}
             </button>
+            <p className="mt-2 text-[11px] text-ink-muted">{BULK_SCORING_DISCLOSURE}</p>
             {stale > 0 && (
               <button
                 onClick={() => setConfirmStale(true)}

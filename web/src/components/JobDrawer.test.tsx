@@ -1,39 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { makeJob } from "../test-utils/job";
 import type { Job } from "../lib/types";
 import { JobDrawer } from "./JobDrawer";
 
-const BASE: Job = {
-  key: "job-a",
-  company: "Acme",
-  tier: 1,
-  title: "Engineer",
-  location: "Remote",
-  url: "https://example.com/a",
-  salary_min: null,
-  salary_max: null,
-  posted_at: "",
-  first_seen: "",
-  source: "ashby",
-  closed_at: null,
-  is_internal: false,
-  is_new: false,
-  status: "new",
-  starred: false,
-  note: "",
-  next_action_at: null,
-  next_action_note: "",
-  fit: null,
-  subscores: null,
-  why: null,
-  gaps: null,
-  angle: null,
-  lens: null,
-  scored_at: null,
-  stale: false,
-  has_deep_dive: false,
-};
+const BASE: Job = makeJob({
+  key: "job-a", company: "Acme", title: "Engineer", location: "Remote",
+  url: "https://example.com/a", source: "ashby",
+});
 
 const JOB_A: Job = { ...BASE, key: "job-a", note: "" };
 const JOB_B: Job = { ...BASE, key: "job-b", title: "Manager", note: "existing b note" };
@@ -147,6 +122,37 @@ describe("JobDrawer as a modal dialog", () => {
     rerenderWith(JOB_A, { open: false });
 
     await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+});
+
+describe("JobDrawer Gemini disclosure", () => {
+  it("says what leaves the machine before an unscored job can be scored", () => {
+    renderDrawer({ ...BASE, fit: null });
+    expect(screen.getByRole("button", { name: /score now/i })).toBeInTheDocument();
+    expect(screen.getByText(/sends your profile, rubric, and this job's description to gemini/i))
+      .toBeInTheDocument();
+  });
+
+  it("says the same before a deep dive, which sends the same material", () => {
+    renderDrawer({ ...BASE, fit: 80 });
+    expect(screen.getByText(/deep dive sends .*to gemini/i)).toBeInTheDocument();
+  });
+});
+
+describe("JobDrawer dismissal", () => {
+  it("says why a job was dismissed, so a past call can be re-examined", () => {
+    renderDrawer({ ...BASE, status: "dismissed", dismiss_reason: "rto" });
+    expect(screen.getByText(/dismissed: RTO/i)).toBeInTheDocument();
+  });
+
+  it("says nothing when a dismissal carries no reason", () => {
+    renderDrawer({ ...BASE, status: "dismissed", dismiss_reason: null });
+    expect(screen.queryByText(/dismissed:/i)).not.toBeInTheDocument();
+  });
+
+  it("does not show a reason for a job that is not dismissed", () => {
+    renderDrawer({ ...BASE, status: "interested", dismiss_reason: "comp" });
+    expect(screen.queryByText(/dismissed:/i)).not.toBeInTheDocument();
   });
 });
 

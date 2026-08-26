@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { reasonForDigit, type DismissReason } from "../lib/dismiss";
 import type { Status } from "../lib/types";
 
 export interface KeyboardOpts {
@@ -12,6 +13,12 @@ export interface KeyboardOpts {
   toggleStar: (key: string) => void;
   startDeepDive: (key: string) => void;
   setFollowUp: (key: string) => void;
+  /** true while the reason picker is open; the board holds still until answered */
+  dismissPending: boolean;
+  startDismiss: (key: string) => void;
+  /** null dismisses without recording a reason */
+  pickDismissReason: (reason: DismissReason | null) => void;
+  cancelDismiss: () => void;
   focusSearch: () => void;
   toggleHelp: () => void;
 }
@@ -35,13 +42,28 @@ export function useKeyboard(o: KeyboardOpts) {
         row?.focus({ preventScroll: true });
       };
       const withSelected = (fn: (key: string) => void) => o.selectedKey && fn(o.selectedKey);
+
+      // A pending dismissal owns the keyboard until it is answered: letting j/k
+      // move on would land the reason on whatever row the cursor drifted to.
+      if (o.dismissPending) {
+        switch (e.key) {
+          case "Escape": o.cancelDismiss(); return;
+          case "x": case "Enter": o.pickDismissReason(null); return;
+          default: {
+            const reason = reasonForDigit(e.key);
+            if (reason) o.pickDismissReason(reason);
+            return;
+          }
+        }
+      }
+
       switch (e.key) {
         case "j": move(1); break;
         case "k": move(-1); break;
         case "Enter": case "o": withSelected(() => o.setDrawerOpen(true)); break;
         case "Escape": o.setDrawerOpen(false); break;
         case "i": withSelected((k) => o.setStatus(k, "interested")); break;
-        case "x": withSelected((k) => o.setStatus(k, "dismissed")); break;
+        case "x": withSelected((k) => o.startDismiss(k)); break;
         case "a": withSelected((k) => o.setStatus(k, "applied")); break;
         case "s": withSelected((k) => o.toggleStar(k)); break;
         case "d": withSelected((k) => { o.setDrawerOpen(true); o.startDeepDive(k); }); break;
