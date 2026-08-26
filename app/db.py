@@ -58,6 +58,24 @@ CREATE TABLE IF NOT EXISTS score_history (
   scored_at TEXT
 );
 CREATE INDEX IF NOT EXISTS score_history_key_idx ON score_history(key, scored_at);
+-- One row per job: the queryable facts an LLM read out of the JD, each carrying
+-- the verbatim quote it came from. Re-extraction replaces the row; a fact with
+-- no quote found in the JD is never stored at all (see app/facts.py).
+CREATE TABLE IF NOT EXISTS job_facts (
+  key TEXT PRIMARY KEY REFERENCES jobs(key),
+  years_min INTEGER,
+  level TEXT,
+  office_days INTEGER,
+  remote_policy TEXT CHECK (remote_policy IN ('remote','hybrid','onsite')),
+  must_haves TEXT,          -- JSON array of strings
+  salary_min_jd REAL, salary_max_jd REAL,
+  apply_deadline TEXT,
+  visa_or_clearance TEXT,
+  evidence TEXT,            -- JSON: field -> verbatim JD quote (must_haves -> array)
+  confidence INTEGER,
+  model TEXT, prompt_version TEXT, jd_hash TEXT,
+  extracted_at TEXT
+);
 CREATE TABLE IF NOT EXISTS jd_cache (
   key TEXT PRIMARY KEY REFERENCES jobs(key),
   jd_text TEXT, fetched_at TEXT

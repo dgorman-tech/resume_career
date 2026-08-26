@@ -36,6 +36,52 @@ def test_run_scoring_step_survives_failures(tmp_db, monkeypatch):
     assert result["failed"] >= 1 and result["scored"] == 0
 
 
+def test_run_facts_step_extracts_new_matches_and_a_bounded_backlog(tmp_db, monkeypatch):
+    calls = []
+
+    def fake_extract(conn, session, cfg, key, inline_jd=None):
+        calls.append((key, inline_jd))
+        conn.execute("INSERT OR REPLACE INTO job_facts(key, office_days) VALUES (?, 2)", (key,))
+        return {"office_days": 2}
+
+    monkeypatch.setattr("app.facts.extract_facts", fake_extract)
+    new_matched = [{"key": "k1", "jd_text": None}, {"key": "k2", "jd_text": "INLINE JD"}]
+
+    result = w.run_facts_step(tmp_db, MagicMock(), CFG, new_matched)
+
+    assert {c[0] for c in calls} == {"k1", "k2", "k3"}   # k3 = older job with no facts yet
+    assert dict(calls)["k2"] == "INLINE JD"              # inline jd forwarded, no refetch
+    assert result["extracted"] == 3 and result["failed"] == 0
+
+
+def test_run_facts_step_survives_a_job_with_no_description(tmp_db, monkeypatch):
+    def boom(*a, **k):
+        from app.scorer import ScorerError
+        raise ScorerError("no job description available")
+
+    monkeypatch.setattr("app.facts.extract_facts", boom)
+    result = w.run_facts_step(tmp_db, MagicMock(), CFG, [{"key": "k1", "jd_text": None}])
+    assert result["failed"] >= 1 and result["extracted"] == 0
+
+
+def test_run_facts_step_can_be_switched_off(tmp_db, monkeypatch):
+    calls = []
+    monkeypatch.setattr("app.facts.extract_facts", lambda *a, **k: calls.append(1))
+    cfg = {"app": {"extract_facts": False}, "companies": []}
+    w.run_facts_step(tmp_db, MagicMock(), cfg, [{"key": "k1", "jd_text": None}])
+    assert calls == []
+
+
+def test_run_facts_step_skips_jobs_that_already_have_facts(tmp_db, monkeypatch):
+    tmp_db.execute("INSERT INTO job_facts(key, office_days) VALUES ('k3', 3)")
+    tmp_db.commit()
+    calls = []
+    monkeypatch.setattr("app.facts.extract_facts",
+                        lambda conn, s, c, key, inline_jd=None: calls.append(key))
+    w.run_facts_step(tmp_db, MagicMock(), CFG, [])
+    assert "k3" not in calls
+
+
 def test_push_ntfy_includes_fit(monkeypatch):
     sent = {}
     monkeypatch.setattr(w.requests, "post",

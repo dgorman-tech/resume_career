@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import db as appdb
+from app import facts as facts_mod
 from app import scorer, jd_fetch
 
 CONFIG_PATH = appdb.REPO_ROOT / "watcher" / "config.json"
@@ -79,7 +80,24 @@ def err(msg, status=400):
                         content={"ok": False, "data": None, "error": str(msg)})
 
 
-def _row_to_job(row, internal, stale_after):
+FACT_KEYS = ("years_min", "level", "office_days", "remote_policy", "must_haves",
+             "salary_min_jd", "salary_max_jd", "apply_deadline", "visa_or_clearance",
+             "evidence", "confidence", "extracted_at")
+
+
+def _facts_by_key(conn):
+    """Facts are fetched in one pass and merged in Python rather than joined:
+    job_facts and job_scores share column names, and aliasing every one of them
+    into JOBS_SQL costs more clarity than the extra query costs time."""
+    return {r["key"]: facts_mod.row_to_facts(r)
+            for r in conn.execute("SELECT * FROM job_facts").fetchall()}
+
+
+def _facts_payload(f):
+    return {k: f.get(k) for k in FACT_KEYS} if f else None
+
+
+def _row_to_job(row, internal, stale_after, job_facts=None, profile=None):
     d = dict(row)
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
     scored_at = d.get("scored_at")
@@ -103,6 +121,9 @@ def _row_to_job(row, internal, stale_after):
         "lens": d.get("lens"), "scored_at": scored_at,
         "stale": bool(scored_at and stale_after and stale_after > scored_at),
         "has_deep_dive": bool(d.get("deep_dive_md")),
+        "facts": _facts_payload(job_facts),
+        # machines flag and demote; only the user dismisses
+        "conflicts": facts_mod.find_conflicts(job_facts, profile) if (job_facts and profile) else [],
     }
 
 
@@ -199,8 +220,13 @@ def create_app(db_path=None, cfg=None, config_path=None):
         conn = get_conn()
         try:
             stale_after = _stale_cutoff(conn)
+            by_key = _facts_by_key(conn)
+            prof = conn.execute(
+                "SELECT max_office_days, min_level, comp_floor_cad FROM profile WHERE id=1").fetchone()
+            profile = dict(prof) if prof else None
             rows = conn.execute(JOBS_SQL).fetchall()
-            return ok([_row_to_job(r, internal, stale_after) for r in rows])
+            return ok([_row_to_job(r, internal, stale_after, by_key.get(r["key"]), profile)
+                       for r in rows])
         finally:
             conn.close()
 
@@ -244,6 +270,9 @@ def create_app(db_path=None, cfg=None, config_path=None):
                 "last_run": dict(last) if last else None,
                 "unscored": unscored,
                 "stale_shortlisted": len(_stale_shortlist_keys(conn)),
+                "missing_facts": conn.execute(
+                    """SELECT COUNT(*) FROM jobs j LEFT JOIN job_facts f ON f.key=j.key
+                       WHERE j.matched=1 AND j.closed_at IS NULL AND f.key IS NULL""").fetchone()[0],
             })
         finally:
             conn.close()
@@ -433,6 +462,16 @@ def create_app(db_path=None, cfg=None, config_path=None):
         try:
             d = scorer.score_job(conn, app.state.session, get_cfg(), key)
             return ok(d)
+        except scorer.ScorerError as exc:
+            return err(str(exc), 400)
+        finally:
+            conn.close()
+
+    @app.post("/api/jobs/{key:path}/extract-facts")
+    def extract_facts(key: str):
+        conn = get_conn()
+        try:
+            return ok(facts_mod.extract_facts(conn, app.state.session, get_cfg(), key))
         except scorer.ScorerError as exc:
             return err(str(exc), 400)
         finally:

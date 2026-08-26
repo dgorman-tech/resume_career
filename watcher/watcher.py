@@ -24,6 +24,7 @@ LOG_PATH = BASE_DIR / "watcher.log"
 LOG_MAX_LINES = 2000
 NTFY_MAX_TITLES = 6
 SCORE_RETRY_CAP = 30
+FACTS_RETRY_CAP = 30
 
 
 # ---------------------------------------------------------------- utilities
@@ -656,6 +657,37 @@ def run_scoring_step(conn, session, cfg, new_matched):
     return result
 
 
+def run_facts_step(conn, session, cfg, new_matched):
+    """Read structured facts out of each new JD (+ a bounded backlog). Never raises:
+    a posting with no fetchable description must not fail the whole run."""
+    result = {"extracted": 0, "failed": 0}
+    if not cfg.get("app", {}).get("extract_facts", True):
+        return result
+    try:
+        sys.path.insert(0, str(BASE_DIR.parent))
+        from app import db as appdb, facts
+    except ImportError as exc:
+        log(f"fact extraction skipped (app package unavailable: {exc})")
+        return result
+    appdb.ensure_schema(conn)
+    todo = {j["key"]: j.get("jd_text") for j in new_matched}
+    backlog = conn.execute(
+        """SELECT j.key FROM jobs j LEFT JOIN job_facts f ON f.key = j.key
+           WHERE j.matched = 1 AND j.closed_at IS NULL AND f.key IS NULL
+           LIMIT ?""", (FACTS_RETRY_CAP,)).fetchall()
+    for row in backlog:
+        todo.setdefault(row[0], None)
+    for key, inline_jd in todo.items():
+        try:
+            facts.extract_facts(conn, session, cfg, key, inline_jd=inline_jd)
+            result["extracted"] += 1
+        except Exception as exc:
+            result["failed"] += 1
+            log(f"fact extraction failed for {key}: {exc}")
+        time.sleep(cfg.get("delay_between_requests_seconds", 1.5))
+    return result
+
+
 # -------------------------------------------------------------------- main
 
 def run(dry_run=False):
@@ -721,11 +753,17 @@ def run(dry_run=False):
         scoring = run_scoring_step(conn, session, cfg, all_new)
     except Exception as exc:
         log(f"scoring step error (non-fatal): {exc}")
+    extraction = {"extracted": 0, "failed": 0}
+    try:
+        extraction = run_facts_step(conn, session, cfg, all_new)
+    except Exception as exc:
+        log(f"fact extraction step error (non-fatal): {exc}")
     if not is_first_run:
         push_ntfy(cfg, all_new, fits=scoring["fits"], pipeline_closures=closures)
     log(f"run complete: {total_new} new matches{' (baseline seed)' if is_first_run else ''}, "
         f"{board_count} total open matches on board, "
         f"{scoring['scored']} scored / {scoring['failed']} score-failed, "
+        f"{extraction['extracted']} facts / {extraction['failed']} fact-failed, "
         f"{len(closures)} tracked posting(s) closed")
     conn.close()
     return 0

@@ -133,6 +133,25 @@ def test_score_history_records_provenance_and_appends(tmp_db):
         "SELECT fit FROM score_history WHERE key='k1' ORDER BY id").fetchall()] == [70, 80]
 
 
+def test_job_facts_table_holds_facts_and_their_provenance(tmp_db):
+    cols = {r["name"] for r in tmp_db.execute("PRAGMA table_info(job_facts)").fetchall()}
+    assert {"key", "years_min", "level", "office_days", "remote_policy", "must_haves",
+            "salary_min_jd", "salary_max_jd", "apply_deadline", "visa_or_clearance",
+            "evidence", "confidence", "model", "prompt_version", "jd_hash",
+            "extracted_at"} <= cols
+
+
+def test_job_facts_is_one_row_per_job(tmp_db):
+    from app import db as appdb
+    for days in (3, 2):
+        tmp_db.execute(
+            """INSERT INTO job_facts(key, office_days, extracted_at) VALUES (?,?,?)
+               ON CONFLICT(key) DO UPDATE SET office_days=excluded.office_days""",
+            ("k1", days, appdb.now_iso()))
+    rows = tmp_db.execute("SELECT office_days FROM job_facts WHERE key='k1'").fetchall()
+    assert [r[0] for r in rows] == [2]   # re-extraction replaces, it does not accumulate
+
+
 def test_load_dimensions_filters_and_orders(tmp_db):
     from app import db as appdb
     tmp_db.execute("UPDATE score_dimensions SET archived=1 WHERE key='flex'")
