@@ -11,6 +11,7 @@ export interface KeyboardOpts {
   setStatus: (key: string, s: Status) => void;
   toggleStar: (key: string) => void;
   startDeepDive: (key: string) => void;
+  setFollowUp: (key: string) => void;
   focusSearch: () => void;
   toggleHelp: () => void;
 }
@@ -28,7 +29,10 @@ export function useKeyboard(o: KeyboardOpts) {
         if (o.keys.length === 0) return;
         const next = idx < 0 ? 0 : Math.min(o.keys.length - 1, Math.max(0, idx + delta));
         o.setSelectedKey(o.keys[next]);
-        document.querySelector(`tr[data-key="${CSS.escape(o.keys[next])}"]`)?.scrollIntoView({ block: "nearest" });
+        const row = document.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(o.keys[next])}"]`);
+        row?.scrollIntoView({ block: "nearest" });
+        // focus follows selection so the drawer has a row to hand focus back to
+        row?.focus({ preventScroll: true });
       };
       const withSelected = (fn: (key: string) => void) => o.selectedKey && fn(o.selectedKey);
       switch (e.key) {
@@ -41,6 +45,7 @@ export function useKeyboard(o: KeyboardOpts) {
         case "a": withSelected((k) => o.setStatus(k, "applied")); break;
         case "s": withSelected((k) => o.toggleStar(k)); break;
         case "d": withSelected((k) => { o.setDrawerOpen(true); o.startDeepDive(k); }); break;
+        case "f": withSelected((k) => { o.setDrawerOpen(true); o.setFollowUp(k); }); break;
         case "/": e.preventDefault(); o.focusSearch(); break;
         case "?": o.toggleHelp(); break;
         default: return;

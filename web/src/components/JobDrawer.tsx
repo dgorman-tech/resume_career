@@ -1,3 +1,4 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ExternalLink, Star, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +9,11 @@ import { Badges } from "./Badges";
 import { DeepDivePanel } from "./DeepDivePanel";
 import { ScoreDial } from "./ScoreDial";
 
+export interface NextActionPatch {
+  next_action_at?: string;
+  next_action_note?: string;
+}
+
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-3">
@@ -17,20 +23,28 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScoreNow, deepDiveRequested, onDeepDiveHandled, score, dimensions }: {
+export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNextAction, onScoreNow, deepDiveRequested, onDeepDiveHandled, followUpRequested, onFollowUpHandled, score, dimensions }: {
   job: Job | null;
   open: boolean;
   onClose: () => void;
   onStatus: (key: string, s: Status) => void;
   onStar: (key: string, starred: boolean) => void;
   onNote: (key: string, note: string) => void;
+  onNextAction: (key: string, patch: NextActionPatch) => void;
   onScoreNow: (key: string) => void;
   deepDiveRequested: boolean;
   onDeepDiveHandled: () => void;
+  followUpRequested: boolean;
+  onFollowUpHandled: () => void;
   score: number | null;
   dimensions: Dimension[];
 }) {
   const [note, setNote] = useState("");
+  const [followUpAt, setFollowUpAt] = useState("");
+  const [followUpNote, setFollowUpNote] = useState("");
+  const followUpRef = useRef<HTMLInputElement | null>(null);
+  // whatever had focus when the drawer opened, so closing puts the user back
+  const restoreRef = useRef<HTMLElement | null>(null);
   const noteTimer = useRef<number | undefined>(undefined);
   // Tracks the most recently typed value not yet flushed to the server, keyed
   // to the job it belongs to, so a fast job switch (j/k) or drawer/component
@@ -39,6 +53,8 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
 
   useEffect(() => {
     setNote(job?.note ?? "");
+    setFollowUpAt(job?.next_action_at ?? "");
+    setFollowUpNote(job?.next_action_note ?? "");
     return () => {
       if (pendingRef.current) {
         window.clearTimeout(noteTimer.current);
@@ -61,6 +77,19 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
     }
   };
 
+  // The 'f' shortcut opens the drawer straight onto the date field; hand the
+  // request back once honoured so a re-render cannot steal focus again.
+  useEffect(() => {
+    if (!followUpRequested || !open || !job) return;
+    followUpRef.current?.focus();
+    onFollowUpHandled();
+  }, [followUpRequested, open, job, onFollowUpHandled]);
+
+  const onFollowUpDate = (v: string) => {
+    setFollowUpAt(v);
+    if (job) onNextAction(job.key, { next_action_at: v });
+  };
+
   const action = (icon: React.ReactNode, label: string, pressed: boolean, cls: string, fn: () => void) => (
     <button onClick={fn} aria-pressed={pressed}
       className={clsx("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition", cls)}>
@@ -68,24 +97,47 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
     </button>
   );
 
+  const isOpen = open && !!job;
+
   return (
-    <AnimatePresence>
-      {open && job && (
-        <>
-          <motion.div
-            className="fixed inset-0 z-30 bg-ink/30"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.aside
-            key={job.key}
-            className="fixed top-0 right-0 z-40 flex h-full w-[480px] max-w-[90vw] flex-col overflow-y-auto border-l border-hairline bg-surface p-6 shadow-overlay"
-            initial={{ x: 480 }} animate={{ x: 0 }} exit={{ x: 480 }}
-            transition={{ duration: 0.24, ease: [0.25, 1, 0.5, 1] }}
-          >
+    // Radix owns the modal semantics, focus trap, and focus restore; framer-motion
+    // keeps the slide-in. forceMount hands presence to AnimatePresence so the exit
+    // animation still runs.
+    <Dialog.Root open={isOpen} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <AnimatePresence>
+        {isOpen && job && (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild forceMount>
+              <motion.div
+                className="fixed inset-0 z-30 bg-ink/30"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              />
+            </Dialog.Overlay>
+            <Dialog.Content asChild forceMount aria-describedby={undefined}
+              onOpenAutoFocus={(e) => {
+                // captured here, while the opener still holds focus
+                restoreRef.current = document.activeElement as HTMLElement | null;
+                if (!followUpRequested) return;
+                e.preventDefault();
+                followUpRef.current?.focus();
+              }}
+              onCloseAutoFocus={(e) => {
+                e.preventDefault();
+                const opener = restoreRef.current;
+                if (opener?.isConnected) opener.focus();
+                restoreRef.current = null;
+              }}>
+              <motion.aside
+                aria-modal="true"
+                className="fixed top-0 right-0 z-40 flex h-full w-[480px] max-w-[90vw] flex-col overflow-y-auto border-l border-hairline bg-surface p-6 shadow-overlay"
+                initial={{ x: 480 }} animate={{ x: 0 }} exit={{ x: 480 }}
+                transition={{ duration: 0.24, ease: [0.25, 1, 0.5, 1] }}
+              >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl leading-tight font-semibold tracking-tight">{job.title}</h2>
+                <Dialog.Title className="text-xl leading-tight font-semibold tracking-tight">
+                  {job.title}
+                </Dialog.Title>
                 <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                   <span className="font-semibold text-ink">{job.company}</span>
                   <Badges job={job} />
@@ -97,9 +149,9 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
                   </a>
                 </p>
               </div>
-              <button onClick={onClose} aria-label="Close" className="icon-btn -mr-2 shrink-0">
+              <Dialog.Close aria-label="Close" className="icon-btn -mr-2 shrink-0">
                 <X className="size-5" aria-hidden="true" />
-              </button>
+              </Dialog.Close>
             </div>
 
             <div className="mt-4 flex items-center gap-3">
@@ -148,6 +200,32 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
               </button>
             </div>
 
+            <div className="mt-4 flex flex-wrap items-end gap-3">
+              <div>
+                <label htmlFor="next-action-at"
+                  className="block font-mono text-[11px] font-medium tracking-[0.08em] text-ink-muted">
+                  FOLLOW UP
+                </label>
+                <input
+                  id="next-action-at"
+                  ref={followUpRef}
+                  type="date"
+                  value={followUpAt}
+                  onChange={(e) => onFollowUpDate(e.target.value)}
+                  className="field mt-1 px-2 py-1 text-[13px]"
+                />
+              </div>
+              <input
+                type="text"
+                value={followUpNote}
+                onChange={(e) => setFollowUpNote(e.target.value)}
+                onBlur={() => job && onNextAction(job.key, { next_action_note: followUpNote })}
+                placeholder="What's the next move?"
+                aria-label="Follow-up note"
+                className="field mt-1 min-w-40 flex-1 px-2 py-1 text-[13px]"
+              />
+            </div>
+
             <textarea
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
@@ -162,11 +240,14 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onScor
               <span><kbd>x</kbd> dismiss</span>
               <span><kbd>a</kbd> applied</span>
               <span><kbd>d</kbd> deep dive</span>
+              <span><kbd>f</kbd> follow up</span>
               <span><kbd>esc</kbd> close</span>
             </p>
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
+              </motion.aside>
+            </Dialog.Content>
+          </Dialog.Portal>
+        )}
+      </AnimatePresence>
+    </Dialog.Root>
   );
 }

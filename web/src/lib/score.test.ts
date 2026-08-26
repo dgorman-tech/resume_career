@@ -8,7 +8,8 @@ const dim = (key: string, weight: number, archived = false): Dimension =>
 const job = (fit: number | null, subscores: Record<string, number> | null): Job =>
   ({ key: "k", company: "c", tier: 1, title: "t", location: "l", url: "u",
      salary_min: null, salary_max: null, posted_at: "", first_seen: "", source: "s",
-     is_internal: false, is_new: false, status: "new", starred: false, note: "",
+     closed_at: null, is_internal: false, is_new: false, status: "new", starred: false, note: "",
+     next_action_at: null, next_action_note: "",
      fit, subscores, why: null, gaps: null, angle: null, lens: null, scored_at: null,
      stale: false, has_deep_dive: false });
 

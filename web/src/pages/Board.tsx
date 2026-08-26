@@ -10,6 +10,7 @@ import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
 import { getDimensions, scoreJob } from "../lib/api";
+import { orderByAttention, todayISO } from "../lib/nextAction";
 import { scoreMap } from "../lib/score";
 import type { DimensionsPayload, Job } from "../lib/types";
 
@@ -35,6 +36,7 @@ export default function Board() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [deepDiveRequested, setDeepDiveRequested] = useState(false);
+  const [followUpRequested, setFollowUpRequested] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   const dimsQuery = useQuery({ queryKey: ["dimensions"], queryFn: getDimensions });
@@ -52,9 +54,12 @@ export default function Board() {
     [jobs, activeDims, tune],
   );
 
+  // one ordering feeds both the table and the keyboard, so j/k always walks the
+  // rows in the order they are drawn
+  const today = todayISO();
   const visible = useMemo(
-    () => sortJobs(applyFilters(jobs ?? [], filters), sort, scores),
-    [jobs, filters, sort, scores],
+    () => orderByAttention(sortJobs(applyFilters(jobs ?? [], filters), sort, scores), today),
+    [jobs, filters, sort, scores, today],
   );
   const selected = visible.find((j) => j.key === selectedKey) ?? (jobs ?? []).find((j) => j.key === selectedKey) ?? null;
 
@@ -77,6 +82,7 @@ export default function Board() {
       if (j) patch(key, { starred: !j.starred });
     },
     startDeepDive: () => setDeepDiveRequested(true),
+    setFollowUp: () => setFollowUpRequested(true),
     focusSearch: () => searchRef.current?.focus(),
     toggleHelp: () => setHelpOpen((h) => !h),
   });
@@ -116,6 +122,7 @@ export default function Board() {
           setSort={setSort}
           onStatus={(key, status) => patch(key, { status })}
           scores={scores}
+          today={today}
         />
       )}
       <JobDrawer
@@ -125,9 +132,12 @@ export default function Board() {
         onStatus={(key, s) => patch(key, { status: s })}
         onStar={(key, starred) => patch(key, { starred })}
         onNote={(key, note) => patch(key, { note })}
+        onNextAction={(key, p) => patch(key, p)}
         onScoreNow={onScoreNow}
         deepDiveRequested={deepDiveRequested}
         onDeepDiveHandled={() => setDeepDiveRequested(false)}
+        followUpRequested={followUpRequested}
+        onFollowUpHandled={() => setFollowUpRequested(false)}
         score={selected ? (scores.get(selected.key) ?? null) : null}
         dimensions={activeDims}
       />

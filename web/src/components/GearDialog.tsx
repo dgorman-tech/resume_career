@@ -3,18 +3,24 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { getHealth, getScoringStatus, scoreUnscored } from "../lib/api";
+import { getHealth, getScoringStatus, rescoreStale, scoreUnscored } from "../lib/api";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 export function GearDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: health, refetch } = useQuery({ queryKey: ["health"], queryFn: getHealth, enabled: open });
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [confirmStale, setConfirmStale] = useState(false);
   const timer = useRef<number | undefined>(undefined);
+  const stale = health?.stale_shortlisted ?? 0;
 
-  const startBackfill = async () => {
+  const startBackfill = async (
+    run: () => Promise<{ started: boolean; total: number }> = () => scoreUnscored(50),
+    emptyMessage = "Nothing unscored",
+  ) => {
     try {
-      const { started, total } = await scoreUnscored(50);
-      if (!started) { toast.info("Nothing unscored"); return; }
+      const { started, total } = await run();
+      if (!started) { toast.info(emptyMessage); return; }
       setProgress({ done: 0, total });
       const poll = async () => {
         try {
@@ -65,6 +71,7 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
                   {row("Batch scoring", health.batch_scoring ? "on (daily run)" : "off")}
                   {row("Last watcher run", health.last_run ? `${health.last_run.ts} · ${health.last_run.company} · ${health.last_run.status}` : "—")}
                   {row("Unscored jobs", String(health.unscored))}
+                  {row("Stale shortlisted", String(health.stale_shortlisted))}
                 </tbody>
               </table>
             )}
@@ -75,12 +82,29 @@ export function GearDialog({ open, onClose }: { open: boolean; onClose: () => vo
             >
               {progress ? `Scoring… ${progress.done}/${progress.total}` : `Score all unscored (${health?.unscored ?? 0})`}
             </button>
+            {stale > 0 && (
+              <button
+                onClick={() => setConfirmStale(true)}
+                disabled={!!progress || !health?.key_present}
+                className="mt-2 w-full rounded-md border border-hairline py-1.5 font-semibold text-ink transition hover:bg-sunken disabled:opacity-50"
+              >
+                Re-score stale shortlisted ({stale})
+              </button>
+            )}
             <p className="mt-2 text-[11px] text-ink-muted">
               Models are set in the Settings tab, under Advanced.
             </p>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
+      <ConfirmDialog
+        open={confirmStale}
+        title="Re-score stale shortlisted roles?"
+        body={`This sends your profile, rubric, and each job's description to Gemini — ${stale} role${stale === 1 ? "" : "s"} you marked interested, applied, or starred whose scores predate your current profile. Nothing else on the board is touched.`}
+        confirmLabel={`Re-score ${stale}`}
+        onConfirm={() => void startBackfill(() => rescoreStale(stale), "Nothing stale to re-score")}
+        onClose={() => setConfirmStale(false)}
+      />
     </Dialog.Root>
   );
 }

@@ -13,6 +13,7 @@ function opts(overrides = {}) {
     setStatus: vi.fn(),
     toggleStar: vi.fn(),
     startDeepDive: vi.fn(),
+    setFollowUp: vi.fn(),
     focusSearch: vi.fn(),
     toggleHelp: vi.fn(),
     ...overrides,
@@ -39,6 +40,39 @@ describe("useKeyboard", () => {
     renderHook(() => useKeyboard(o));
     fireEvent.keyDown(window, { key: "Escape" });
     expect(o.setDrawerOpen).toHaveBeenCalledWith(false);
+  });
+
+  it("f opens the drawer on the selected job to set a follow-up", () => {
+    const o = opts();
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "f" });
+    expect(o.setDrawerOpen).toHaveBeenCalledWith(true);
+    expect(o.setFollowUp).toHaveBeenCalledWith("a1");
+  });
+
+  it("f does nothing with no row selected", () => {
+    const o = opts({ selectedKey: null });
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "f" });
+    expect(o.setFollowUp).not.toHaveBeenCalled();
+  });
+
+  it("focuses the row it moves to, so closing the drawer can return the user there", () => {
+    const table = document.createElement("table");
+    const body = document.createElement("tbody");
+    const tr = document.createElement("tr");
+    tr.setAttribute("data-key", "a2");
+    tr.tabIndex = -1;
+    body.appendChild(tr);
+    table.appendChild(body);
+    document.body.appendChild(table);
+
+    const o = opts();
+    renderHook(() => useKeyboard(o));
+    fireEvent.keyDown(window, { key: "j" });
+
+    expect(document.activeElement).toBe(tr);
+    table.remove();
   });
 
   it("ignores keys while typing in an input", () => {

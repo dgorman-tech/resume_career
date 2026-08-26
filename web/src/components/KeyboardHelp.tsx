@@ -4,7 +4,8 @@ import { X } from "lucide-react";
 const KEYS: Array<[string[], string]> = [
   [["j", "k"], "move selection"], [["Enter", "o"], "open drawer"], [["Esc"], "close drawer"],
   [["i"], "mark interested"], [["x"], "dismiss"], [["a"], "mark applied"], [["s"], "star"],
-  [["d"], "deep dive"], [["/"], "focus search"], [["?"], "this help"],
+  [["d"], "deep dive"], [["f"], "set follow-up date"],
+  [["/"], "focus search"], [["?"], "this help"],
 ];
 
 export function KeyboardHelp({ open, onClose }: { open: boolean; onClose: () => void }) {

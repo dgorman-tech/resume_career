@@ -9,6 +9,7 @@ vi.mock("../lib/api", () => ({
   getHealth: vi.fn(),
   getScoringStatus: vi.fn(),
   scoreUnscored: vi.fn(),
+  rescoreStale: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -22,6 +23,7 @@ const HEALTH = {
   batch_scoring: true,
   last_run: null,
   unscored: 5,
+  stale_shortlisted: 3,
 };
 
 function renderDialog(open: boolean, onClose: () => void, qc = new QueryClient()) {
@@ -85,5 +87,57 @@ describe("GearDialog backfill polling", () => {
 
     const revived = await screen.findByRole("button", { name: /score all unscored \(5\)/i });
     expect(revived).not.toBeDisabled();
+  });
+});
+
+describe("GearDialog stale re-scoring", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it("offers to repair stale shortlisted scores, naming the exact count", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(HEALTH);
+    renderDialog(true, vi.fn());
+    expect(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }))
+      .toBeInTheDocument();
+  });
+
+  it("spends nothing until the confirmation is accepted", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(HEALTH);
+    vi.mocked(api.rescoreStale).mockResolvedValue({ started: true, total: 3 });
+    renderDialog(true, vi.fn());
+
+    fireEvent.click(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }));
+
+    expect(api.rescoreStale).not.toHaveBeenCalled();
+    expect(await screen.findByText(/sends .*gemini/i)).toBeInTheDocument();
+  });
+
+  it("re-scores once confirmed", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(HEALTH);
+    vi.mocked(api.rescoreStale).mockResolvedValue({ started: true, total: 3 });
+    vi.mocked(api.getScoringStatus).mockResolvedValue({ running: false, done: 3, total: 3, errors: 0 });
+    renderDialog(true, vi.fn());
+
+    fireEvent.click(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^re-score 3$/i }));
+
+    await waitFor(() => expect(api.rescoreStale).toHaveBeenCalledWith(3));
+  });
+
+  it("abandons the run when the confirmation is dismissed", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue(HEALTH);
+    renderDialog(true, vi.fn());
+
+    fireEvent.click(await screen.findByRole("button", { name: /re-score stale shortlisted \(3\)/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /cancel/i }));
+
+    await waitFor(() => expect(screen.queryByText(/sends .*gemini/i)).not.toBeInTheDocument());
+    expect(api.rescoreStale).not.toHaveBeenCalled();
+  });
+
+  it("hides the repair button when nothing is stale", async () => {
+    vi.mocked(api.getHealth).mockResolvedValue({ ...HEALTH, stale_shortlisted: 0 });
+    renderDialog(true, vi.fn());
+    await screen.findByRole("button", { name: /score all unscored/i });
+    expect(screen.queryByRole("button", { name: /re-score stale/i })).not.toBeInTheDocument();
   });
 });

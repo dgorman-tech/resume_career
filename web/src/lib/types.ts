@@ -36,11 +36,16 @@ export interface Job {
   posted_at: string;
   first_seen: string;
   source: string;
+  /** set once the posting disappears from its board; in-pipeline jobs stay listed */
+  closed_at: string | null;
   is_internal: boolean;
   is_new: boolean;
   status: Status;
   starred: boolean;
   note: string;
+  /** local calendar day (YYYY-MM-DD), not an instant */
+  next_action_at: string | null;
+  next_action_note: string;
   fit: number | null;
   subscores: Subscores | null;
   why: string | null;
@@ -135,4 +140,6 @@ export interface Health {
   batch_scoring: boolean;
   last_run: { ts: string; company: string; status: string } | null;
   unscored: number;
+  /** open shortlisted jobs whose score predates the current profile/rubric */
+  stale_shortlisted: number;
 }

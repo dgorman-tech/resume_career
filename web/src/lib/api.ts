@@ -28,12 +28,20 @@ export const putProfile = (p: {
 }) => call<Profile>("/api/profile", { method: "PUT", body: JSON.stringify(p) });
 export const patchJob = (
   key: string,
-  patch: Partial<{ status: Status; starred: boolean; note: string }>,
+  patch: Partial<{
+    status: Status; starred: boolean; note: string;
+    next_action_at: string; next_action_note: string;
+  }>,
 ) => call<unknown>(`/api/jobs/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(patch) });
 export const scoreJob = (key: string) =>
   call<unknown>(`/api/jobs/${encodeURIComponent(key)}/score`, { method: "POST" });
 export const scoreUnscored = (limit: number) =>
   call<{ started: boolean; total: number }>("/api/score-unscored", {
+    method: "POST",
+    body: JSON.stringify({ limit }),
+  });
+export const rescoreStale = (limit: number) =>
+  call<{ started: boolean; total: number }>("/api/rescore-stale", {
     method: "POST",
     body: JSON.stringify({ limit }),
   });

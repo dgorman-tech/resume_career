@@ -3,7 +3,10 @@ import { toast } from "sonner";
 import { getJobs, patchJob } from "../lib/api";
 import type { Job, Status } from "../lib/types";
 
-export type JobPatch = Partial<{ status: Status; starred: boolean; note: string }>;
+export type JobPatch = Partial<{
+  status: Status; starred: boolean; note: string;
+  next_action_at: string; next_action_note: string;
+}>;
 
 export function useJobs() {
   const qc = useQueryClient();
