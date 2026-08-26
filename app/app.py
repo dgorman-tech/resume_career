@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import statistics
 import threading
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,9 @@ CONFIG_PATH = appdb.REPO_ROOT / "watcher" / "config.json"
 
 VALID_STATUSES = {"new", "interested", "dismissed", "applied"}
 VALID_LEVELS = {"", "ic", "manager", "senior_manager", "director", "vp_plus"}
+# follow-up dates are plain calendar days (no time zone): the board compares them
+# against the user's local "today", so storing an instant would only mislead
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 BACKFILL_DELAY = 1.5
 # slightly above the resume-upload cap so multipart framing overhead still fits
@@ -34,6 +38,8 @@ class JobStatePatch(BaseModel):
     status: Optional[str] = None
     starred: Optional[bool] = None
     note: Optional[str] = None
+    next_action_at: Optional[str] = None
+    next_action_note: Optional[str] = None
 
 
 class ProfileBody(BaseModel):
@@ -81,11 +87,14 @@ def _row_to_job(row, internal, stale_after):
         "location": d["location"], "url": d["url"],
         "salary_min": d["salary_min"], "salary_max": d["salary_max"],
         "posted_at": d["posted_at"], "first_seen": d["first_seen"], "source": d["source"],
+        "closed_at": d.get("closed_at"),
         "is_internal": (d["company"] or "").lower() in internal,
         "is_new": (d["first_seen"] or "") >= week_ago,
         "status": d.get("status") or "new",
         "starred": bool(d.get("starred") or 0),
         "note": d.get("note") or "",
+        "next_action_at": d.get("next_action_at"),
+        "next_action_note": d.get("next_action_note") or "",
         "fit": d.get("fit"),
         "subscores": json.loads(d["subscores"]) if d.get("subscores") else None,
         "why": d.get("why"), "gaps": d.get("gaps"), "angle": d.get("angle"),
@@ -93,6 +102,36 @@ def _row_to_job(row, internal, stale_after):
         "stale": bool(scored_at and stale_after and stale_after > scored_at),
         "has_deep_dive": bool(d.get("deep_dive_md")),
     }
+
+
+def _stale_cutoff(conn):
+    """Scores written before this instant no longer reflect the profile/rubric.
+    None means nothing can be stale yet — the user has never saved either."""
+    prof = conn.execute("SELECT updated_at, rubric_updated_at FROM profile WHERE id=1").fetchone()
+    cutoffs = [t for t in ((prof["updated_at"], prof["rubric_updated_at"]) if prof else ()) if t]
+    return max(cutoffs) if cutoffs else None
+
+
+# Stale scores are only worth spending tokens on for roles the user actually
+# cares about: a shortlist, not the whole board.
+STALE_SHORTLIST_SQL = """
+SELECT j.key FROM jobs j
+JOIN job_state s ON s.key = j.key
+JOIN job_scores sc ON sc.key = j.key
+WHERE j.matched = 1 AND j.closed_at IS NULL
+  AND (s.status IN ('interested','applied') OR s.starred = 1)
+  AND sc.scored_at IS NOT NULL AND sc.scored_at < ?
+ORDER BY sc.scored_at
+"""
+
+
+def _stale_shortlist_keys(conn, limit=None):
+    cutoff = _stale_cutoff(conn)
+    if cutoff is None:
+        return []
+    sql = STALE_SHORTLIST_SQL + (" LIMIT ?" if limit is not None else "")
+    params = (cutoff, limit) if limit is not None else (cutoff,)
+    return [r[0] for r in conn.execute(sql, params).fetchall()]
 
 
 def _dimensions_payload(conn):
@@ -110,12 +149,13 @@ def _bump_rubric(conn):
 
 
 JOBS_SQL = """
-SELECT j.*, s.status, s.starred, s.note,
+SELECT j.*, s.status, s.starred, s.note, s.next_action_at, s.next_action_note,
        sc.fit, sc.subscores, sc.why, sc.gaps, sc.angle, sc.lens, sc.scored_at, sc.deep_dive_md
 FROM jobs j
 LEFT JOIN job_state s ON s.key = j.key
 LEFT JOIN job_scores sc ON sc.key = j.key
-WHERE j.matched = 1 AND j.closed_at IS NULL
+WHERE j.matched = 1
+  AND (j.closed_at IS NULL OR s.status IN ('interested','applied'))
 """
 
 
@@ -156,11 +196,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
         internal = [c.lower() for c in cfg_.get("app", {}).get("internal_companies", [])]
         conn = get_conn()
         try:
-            prof = conn.execute(
-                "SELECT updated_at, rubric_updated_at FROM profile WHERE id=1").fetchone()
-            cutoffs = [t for t in ((prof["updated_at"], prof["rubric_updated_at"]) if prof else ())
-                       if t]
-            stale_after = max(cutoffs) if cutoffs else None
+            stale_after = _stale_cutoff(conn)
             rows = conn.execute(JOBS_SQL).fetchall()
             return ok([_row_to_job(r, internal, stale_after) for r in rows])
         finally:
@@ -205,6 +241,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
                 "batch_scoring": appc.get("batch_scoring", True),
                 "last_run": dict(last) if last else None,
                 "unscored": unscored,
+                "stale_shortlisted": len(_stale_shortlist_keys(conn)),
             })
         finally:
             conn.close()
@@ -213,6 +250,13 @@ def create_app(db_path=None, cfg=None, config_path=None):
     def patch_job(key: str, body: JobStatePatch):
         if body.status is not None and body.status not in VALID_STATUSES:
             return err(f"invalid status {body.status!r}", 400)
+        if body.next_action_at:
+            if not DATE_RE.match(body.next_action_at):
+                return err("next_action_at must be a YYYY-MM-DD date", 400)
+            try:
+                datetime.strptime(body.next_action_at, "%Y-%m-%d")
+            except ValueError:
+                return err(f"{body.next_action_at!r} is not a real date", 400)
         conn = get_conn()
         try:
             if conn.execute("SELECT 1 FROM jobs WHERE key=?", (key,)).fetchone() is None:
@@ -225,10 +269,17 @@ def create_app(db_path=None, cfg=None, config_path=None):
                 sets.append("starred=?"); params.append(int(body.starred))
             if body.note is not None:
                 sets.append("note=?"); params.append(body.note)
+            # empty string clears the reminder; None means "leave it alone"
+            if body.next_action_at is not None:
+                sets.append("next_action_at=?"); params.append(body.next_action_at or None)
+            if body.next_action_note is not None:
+                sets.append("next_action_note=?"); params.append(body.next_action_note or None)
             params.append(key)
             conn.execute(f"UPDATE job_state SET {', '.join(sets)} WHERE key=?", params)
             conn.commit()
-            row = conn.execute("SELECT key, status, starred, note FROM job_state WHERE key=?", (key,)).fetchone()
+            row = conn.execute(
+                """SELECT key, status, starred, note, next_action_at, next_action_note
+                   FROM job_state WHERE key=?""", (key,)).fetchone()
             return ok({**dict(row), "starred": bool(row["starred"])})
         finally:
             conn.close()
@@ -421,23 +472,35 @@ def create_app(db_path=None, cfg=None, config_path=None):
         with _backfill_lock:
             _backfill["running"] = False
 
-    @app.post("/api/score-unscored")
-    def score_unscored(body: BackfillBody):
+    def _start_backfill(select_keys):
+        """Run `select_keys` against a fresh connection and score whatever it
+        returns, one job at a time. Both scoring backfills share one slot."""
         with _backfill_lock:
             if _backfill["running"]:
                 return err("a backfill is already running", 409)
             conn = get_conn()
             try:
-                keys = [r[0] for r in conn.execute(
-                    """SELECT j.key FROM jobs j LEFT JOIN job_scores s ON s.key=j.key
-                       WHERE j.matched=1 AND j.closed_at IS NULL AND s.key IS NULL
-                       LIMIT ?""", (body.limit,)).fetchall()]
+                keys = select_keys(conn)
             finally:
                 conn.close()
             _backfill.update({"running": bool(keys), "done": 0, "total": len(keys), "errors": 0})
         if keys:
             threading.Thread(target=_run_backfill, args=(keys, get_cfg()), daemon=True).start()
         return ok({"started": bool(keys), "total": len(keys)})
+
+    @app.post("/api/score-unscored")
+    def score_unscored(body: BackfillBody):
+        return _start_backfill(lambda conn: [r[0] for r in conn.execute(
+            """SELECT j.key FROM jobs j LEFT JOIN job_scores s ON s.key=j.key
+               WHERE j.matched=1 AND j.closed_at IS NULL AND s.key IS NULL
+               LIMIT ?""", (body.limit,)).fetchall()])
+
+    @app.post("/api/rescore-stale")
+    def rescore_stale(body: BackfillBody):
+        """Repair scores the profile/rubric has outgrown. Deliberately bounded to
+        the shortlist: re-scoring the whole board on every rubric tweak would
+        spend tokens on roles the user has already scrolled past."""
+        return _start_backfill(lambda conn: _stale_shortlist_keys(conn, body.limit))
 
     @app.get("/api/scoring-status")
     def scoring_status():

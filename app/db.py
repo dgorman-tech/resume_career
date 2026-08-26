@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS job_state (
     CHECK (status IN ('new','interested','dismissed','applied')),
   starred INTEGER NOT NULL DEFAULT 0,
   note TEXT,
+  next_action_at TEXT,
+  next_action_note TEXT,
   updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS job_scores (
@@ -74,6 +76,13 @@ PROFILE_ADDED_COLUMNS = [
     ("holistic_weight", "INTEGER NOT NULL DEFAULT 50"),
     ("rubric_updated_at", "TEXT"),
 ]
+
+JOB_STATE_ADDED_COLUMNS = [
+    ("next_action_at", "TEXT"),
+    ("next_action_note", "TEXT"),
+]
+
+ADDED_COLUMNS = {"profile": PROFILE_ADDED_COLUMNS, "job_state": JOB_STATE_ADDED_COLUMNS}
 
 DEFAULT_DIMENSIONS = [
     ("comp", "Compensation",
@@ -132,10 +141,11 @@ def get_conn(db_path=None):
 
 
 def _add_missing_columns(conn):
-    existing = {r["name"] for r in conn.execute("PRAGMA table_info(profile)").fetchall()}
-    for name, coltype in PROFILE_ADDED_COLUMNS:
-        if name not in existing:
-            conn.execute(f"ALTER TABLE profile ADD COLUMN {name} {coltype}")
+    for table, columns in ADDED_COLUMNS.items():
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        for name, coltype in columns:
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
 
 
 def ensure_schema(conn):

@@ -26,6 +26,27 @@ def test_patch_starred_only_preserves_status(client):
     assert j["status"] == "applied" and j["starred"] is True
 
 
+def test_patch_next_action_roundtrips(client):
+    r = client.patch("/api/jobs/k1", json={"next_action_at": "2026-09-01",
+                                           "next_action_note": "follow up with recruiter"})
+    assert r.json()["ok"] is True
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["next_action_at"] == "2026-09-01"
+    assert j["next_action_note"] == "follow up with recruiter"
+
+
+def test_patch_clears_next_action_with_empty_string(client):
+    client.patch("/api/jobs/k1", json={"next_action_at": "2026-09-01"})
+    client.patch("/api/jobs/k1", json={"next_action_at": ""})
+    j = next(x for x in client.get("/api/jobs").json()["data"] if x["key"] == "k1")
+    assert j["next_action_at"] is None
+
+
+def test_patch_rejects_malformed_next_action_date(client):
+    r = client.patch("/api/jobs/k1", json={"next_action_at": "next tuesday"})
+    assert r.status_code == 400 and r.json()["ok"] is False
+
+
 def test_patch_unknown_key_404(client):
     r = client.patch("/api/jobs/nope", json={"status": "applied"})
     assert r.status_code == 404 and r.json()["ok"] is False

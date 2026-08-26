@@ -335,7 +335,24 @@ def upsert_jobs(conn, company, jobs, filters):
     closed = [(k, t) for k, t in open_rows if k not in current_keys]
     for k, _ in closed:
         conn.execute("UPDATE jobs SET closed_at=? WHERE key=?", (ts, k))
-    return new_matched, matched_count, [t for _, t in closed]
+    return new_matched, matched_count, closed
+
+
+def pipeline_closures(conn, closed_keys):
+    """Of the postings that just closed, the ones the user has a stake in.
+
+    Answers the question the watcher could not answer before: did anything I
+    applied to or shortlisted disappear today? Filtering happens in Python
+    because job_state only ever holds jobs the user actually triaged."""
+    keys = set(closed_keys)
+    if not keys:
+        return []
+    rows = conn.execute(
+        """SELECT j.key, j.company, j.title, s.status
+           FROM job_state s JOIN jobs j ON j.key = s.key
+           WHERE s.status IN ('interested','applied')
+           ORDER BY s.status, j.company""").fetchall()
+    return [dict(r) for r in rows if r["key"] in keys]
 
 
 # ------------------------------------------------------------------ digest
@@ -354,7 +371,8 @@ def _esc(text):
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def build_html(is_first_run, new_by_tier, closed_by_company, run_stats):
+def build_html(is_first_run, new_by_tier, closed_by_company, run_stats,
+               pipeline_closures=None):
     total_new = sum(len(v) for v in new_by_tier.values())
     total_closed = sum(len(v) for v in closed_by_company.values())
     parts = [f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -386,6 +404,13 @@ def build_html(is_first_run, new_by_tier, closed_by_company, run_stats):
     if is_first_run:
         parts.append('<p class="empty">First run: baseline seeded. Everything matching your filters is '
                      'listed once below; future digests show only changes.</p>')
+    if pipeline_closures:
+        parts.append(f"<h2>Needs attention ({len(pipeline_closures)})</h2>")
+        for hit in pipeline_closures:
+            parts.append(
+                f'<div class="job"><span class="company">{_esc(hit["company"])}</span> — '
+                f'{_esc(hit["title"])}<div class="meta">closed while '
+                f'{_esc(hit["status"])}</div></div>')
     parts.append(f"<h2>New matches ({total_new})</h2>")
     if total_new == 0:
         parts.append('<p class="empty">Nothing new since last run.</p>')
@@ -521,13 +546,21 @@ def write_board(cfg, conn):
     return len(rows)
 
 
-def write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats):
+def write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats,
+                 pipeline_closures=None):
     digest_dir = BASE_DIR / cfg.get("digest_dir", "digests")
     digest_dir.mkdir(exist_ok=True)
     lines = [f"# Job Watcher — {today_local()}", ""]
     if is_first_run:
         lines += ["*First run: baseline seeded. Everything matching the filters is listed once below;",
                   "future digests show only changes.*", ""]
+    # first, above the new matches: a posting you are chasing closing is the one
+    # thing in this digest that may need action today
+    if pipeline_closures:
+        lines.append(f"## Needs attention ({len(pipeline_closures)})")
+        for hit in pipeline_closures:
+            lines.append(f"- **{hit['company']}** — {hit['title']} · closed while `{hit['status']}`")
+        lines.append("")
     total_new = sum(len(v) for v in new_by_tier.values())
     lines.append(f"## New matches ({total_new})")
     if total_new == 0:
@@ -554,30 +587,38 @@ def write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats):
     (digest_dir / f"digest-{today_local()}.md").write_text(content, encoding="utf-8")
     (BASE_DIR / "latest-digest.md").write_text(content, encoding="utf-8")
 
-    html = build_html(is_first_run, new_by_tier, closed_by_company, run_stats)
+    html = build_html(is_first_run, new_by_tier, closed_by_company, run_stats,
+                      pipeline_closures)
     (digest_dir / f"digest-{today_local()}.html").write_text(html, encoding="utf-8")
     (BASE_DIR / "latest-digest.html").write_text(html, encoding="utf-8")
 
     return total_new
 
 
-def push_ntfy(cfg, new_jobs, fits=None):
+def push_ntfy(cfg, new_jobs, fits=None, pipeline_closures=None):
     topic = cfg.get("ntfy_topic", "").strip()
-    if not topic or not new_jobs:
+    closures = pipeline_closures or []
+    if not topic or (not new_jobs and not closures):
         return
     fits = fits or {}
-    titles = []
+    # closures lead: they are the only lines here that can be time-critical
+    lines = [f"{h['status'].capitalize()} posting closed: {h['company']} — {h['title']}"
+             for h in closures[:NTFY_MAX_TITLES]]
     for j in new_jobs[:NTFY_MAX_TITLES]:
         line = f"{j['company']}: {j['title']}"
         fit = fits.get(j.get("key"))
         if fit is not None:
             line += f" (fit {fit})"
-        titles.append(line)
+        lines.append(line)
     extra = f" (+{len(new_jobs) - NTFY_MAX_TITLES} more)" if len(new_jobs) > NTFY_MAX_TITLES else ""
+    headline = f"{len(new_jobs)} new match(es){extra}" if new_jobs else ""
+    if closures:
+        closed_bit = f"{len(closures)} tracked posting(s) closed"
+        headline = f"{closed_bit}, {headline}" if headline else closed_bit
     try:
         requests.post(f"https://ntfy.sh/{topic}",
-                      data="\n".join(titles).encode("utf-8"),
-                      headers={"Title": f"Job Watcher: {len(new_jobs)} new match(es){extra}",
+                      data="\n".join(lines).encode("utf-8"),
+                      headers={"Title": f"Job Watcher: {headline}",
                                "Tags": "briefcase"},
                       timeout=15)
     except requests.RequestException as exc:
@@ -625,6 +666,7 @@ def run(dry_run=False):
     is_first_run = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
 
     all_new, new_by_tier, closed_by_company, run_stats = [], {}, {}, []
+    all_closed_keys = []
     for company in cfg["companies"]:
         name, adapter_name = company.get("name", "?"), company.get("adapter", "")
         adapter = ADAPTERS.get(adapter_name)
@@ -655,7 +697,8 @@ def run(dry_run=False):
             all_new.extend(new_matched)
             new_by_tier.setdefault(company.get("tier", 9), []).extend(new_matched)
             if closed:
-                closed_by_company[name] = closed
+                closed_by_company[name] = [t for _, t in closed]
+                all_closed_keys.extend(k for k, _ in closed)
             run_stats.append(f"{name}: ok, {len(jobs)} jobs, {matched_count} match filters, "
                              f"{len(new_matched)} new, {len(closed)} closed")
         log(run_stats[-1])
@@ -665,7 +708,13 @@ def run(dry_run=False):
         log("dry run complete — no DB writes, no digest, no push")
         return 0
 
-    total_new = write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats)
+    try:
+        closures = pipeline_closures(conn, all_closed_keys)
+    except sqlite3.Error as exc:  # job_state is app-owned and may not exist yet
+        log(f"pipeline closure check skipped: {exc}")
+        closures = []
+    total_new = write_digest(cfg, is_first_run, new_by_tier, closed_by_company, run_stats,
+                             pipeline_closures=closures)
     board_count = write_board(cfg, conn)
     scoring = {"scored": 0, "failed": 0, "fits": {}}
     try:
@@ -673,10 +722,11 @@ def run(dry_run=False):
     except Exception as exc:
         log(f"scoring step error (non-fatal): {exc}")
     if not is_first_run:
-        push_ntfy(cfg, all_new, fits=scoring["fits"])
+        push_ntfy(cfg, all_new, fits=scoring["fits"], pipeline_closures=closures)
     log(f"run complete: {total_new} new matches{' (baseline seed)' if is_first_run else ''}, "
         f"{board_count} total open matches on board, "
-        f"{scoring['scored']} scored / {scoring['failed']} score-failed")
+        f"{scoring['scored']} scored / {scoring['failed']} score-failed, "
+        f"{len(closures)} tracked posting(s) closed")
     conn.close()
     return 0
 

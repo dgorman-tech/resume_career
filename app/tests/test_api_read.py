@@ -44,6 +44,23 @@ def test_jobs_joins_state_and_scores(client, tmp_db):
     assert k1["fit"] == 92 and k1["subscores"]["comp"] == 95
 
 
+def test_closed_job_in_pipeline_stays_visible(client, tmp_db):
+    # a posting you applied to must not vanish the day it closes — that is the
+    # exact moment you need to see it
+    tmp_db.execute("UPDATE jobs SET closed_at='2026-08-25T00:00:00Z' WHERE key='k1'")
+    tmp_db.execute("INSERT INTO job_state(key, status) VALUES ('k1','applied')")
+    tmp_db.commit()
+    k1 = next((j for j in client.get("/api/jobs").json()["data"] if j["key"] == "k1"), None)
+    assert k1 is not None and k1["closed_at"] == "2026-08-25T00:00:00Z"
+
+
+def test_closed_job_without_pipeline_status_disappears(client, tmp_db):
+    tmp_db.execute("UPDATE jobs SET closed_at='2026-08-25T00:00:00Z' WHERE key='k3'")
+    tmp_db.commit()
+    keys = [j["key"] for j in client.get("/api/jobs").json()["data"]]
+    assert "k3" not in keys
+
+
 def test_stale_flag(client, tmp_db):
     tmp_db.execute("INSERT INTO job_scores(key, fit, scored_at) VALUES ('k1', 80, '2026-08-20T00:00:00Z')")
     tmp_db.execute("INSERT INTO profile(id, resume_text, rules_text, updated_at) "
