@@ -3,11 +3,14 @@ watcher/config.json
 watcher/config.json.bak*
 watcher/config.json.tmp
 
-# Generated data — job listings, salary data, personal digests
-watcher/watcher.db
-watcher/watcher.db-shm
-watcher/watcher.db-wal
+# Generated data — job listings, salary data, personal digests.
+# A backup of the database is exactly as sensitive as the database, so this class
+# fails closed: watcher.db* covers the -wal/-shm sidecars and any .bak/.tmp/.old
+# copy, and *.db catches a copy saved under a different name.
+watcher/watcher.db*
+watcher/*.db
 watcher/watcher.log
+watcher/watcher.log.*
 watcher/digests/
 watcher/job-board.html
 watcher/latest-digest.html
