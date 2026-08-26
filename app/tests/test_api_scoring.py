@@ -40,7 +40,7 @@ def _seed_profile(conn):
 def test_score_now(client, tmp_db, monkeypatch):
     _seed_profile(tmp_db)
     import json
-    good = {"fit": 88, "subscores": {"comp": 1, "player_coach": 1, "cost_center": 1, "flex": 1, "level": 1},
+    good = {"fit": 88, "subscores": {"comp": 1, "level": 1, "flex": 1, "domain": 1, "growth": 1},
             "why": "w", "gaps": "g", "angle": "a"}
     monkeypatch.setattr(scorer, "_call_llm", lambda *a, **k: json.dumps(good))
     monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD")
@@ -132,7 +132,7 @@ def test_rescore_stale_respects_the_limit(client, tmp_db, monkeypatch):
 def test_backfill_and_status(client, tmp_db, monkeypatch):
     _seed_profile(tmp_db)
     import json
-    good = {"fit": 70, "subscores": {"comp": 1, "player_coach": 1, "cost_center": 1, "flex": 1, "level": 1},
+    good = {"fit": 70, "subscores": {"comp": 1, "level": 1, "flex": 1, "domain": 1, "growth": 1},
             "why": "w", "gaps": "g", "angle": "a"}
     monkeypatch.setattr(scorer, "_call_llm", lambda *a, **k: json.dumps(good))
     monkeypatch.setattr("app.jd_fetch.get_jd", lambda *a, **k: "JD")

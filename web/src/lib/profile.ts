@@ -1,4 +1,4 @@
-import type { MinLevel } from "./types";
+import type { Currency, MinLevel } from "./types";
 
 export const LEVEL_OPTIONS: { value: MinLevel; label: string }[] = [
   { value: "", label: "Not set" },
@@ -7,6 +7,19 @@ export const LEVEL_OPTIONS: { value: MinLevel; label: string }[] = [
   { value: "senior_manager", label: "Senior Manager" },
   { value: "director", label: "Director" },
   { value: "vp_plus", label: "VP or above" },
+];
+
+export const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
+  { value: "CAD", label: "CAD — Canadian dollar" },
+  { value: "USD", label: "USD — US dollar" },
+  { value: "EUR", label: "EUR — Euro" },
+  { value: "GBP", label: "GBP — British pound" },
+  { value: "AUD", label: "AUD — Australian dollar" },
+  { value: "NZD", label: "NZD — New Zealand dollar" },
+  { value: "CHF", label: "CHF — Swiss franc" },
+  { value: "SEK", label: "SEK — Swedish krona" },
+  { value: "INR", label: "INR — Indian rupee" },
+  { value: "SGD", label: "SGD — Singapore dollar" },
 ];
 
 /** The scorer's own label for a level (app/scorer.py `_LEVEL_LABELS`); "" means unset. */

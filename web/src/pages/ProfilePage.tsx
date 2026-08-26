@@ -16,7 +16,7 @@ import type { Profile } from "../lib/types";
 type Surface = "resume" | "requirements" | "rules" | "rubric";
 
 const EMPTY: Profile = {
-  resume_text: "", rules_text: "", comp_floor_cad: null, comp_goal_cad: null,
+  resume_text: "", rules_text: "", comp_floor: null, comp_goal: null, currency: "CAD",
   max_office_days: null, location_text: "", min_level: "", updated_at: null,
 };
 
@@ -69,7 +69,7 @@ export default function ProfilePage({ onOpenHealth }: { onOpenHealth?: () => voi
     try {
       await putProfile({
         resume_text: next.resume_text, rules_text: next.rules_text,
-        comp_floor_cad: next.comp_floor_cad, comp_goal_cad: next.comp_goal_cad,
+        comp_floor: next.comp_floor, comp_goal: next.comp_goal, currency: next.currency,
         max_office_days: next.max_office_days, location_text: next.location_text,
         min_level: next.min_level,
       });
@@ -100,9 +100,9 @@ export default function ProfilePage({ onOpenHealth }: { onOpenHealth?: () => voi
           <SectionHead title="Hard requirements" onEdit={() => setSurface("requirements")} />
           <dl className="panel grid grid-cols-2 gap-px overflow-hidden bg-hairline sm:grid-cols-3 lg:grid-cols-5">
             <Criterion label="COMP FLOOR" mono
-              value={profile.comp_floor_cad ? fmtSalary(profile.comp_floor_cad, null) : null} />
+              value={profile.comp_floor ? fmtSalary(profile.comp_floor, null, profile.currency) : null} />
             <Criterion label="COMP GOAL" mono
-              value={profile.comp_goal_cad ? fmtSalary(profile.comp_goal_cad, null) : null} />
+              value={profile.comp_goal ? fmtSalary(profile.comp_goal, null, profile.currency) : null} />
             <Criterion label="OFFICE DAYS" mono
               value={profile.max_office_days === null ? null : `${profile.max_office_days}/wk max`} />
             <Criterion label="LOCATION" value={profile.location_text || null} />

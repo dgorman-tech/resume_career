@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { LEVEL_OPTIONS, toIntOrNull } from "../lib/profile";
-import type { MinLevel, Profile } from "../lib/types";
+import { CURRENCY_OPTIONS, LEVEL_OPTIONS, toIntOrNull } from "../lib/profile";
+import type { Currency, MinLevel, Profile } from "../lib/types";
 import { EditDialog } from "./EditDialog";
 
 export type Requirements = Pick<
-  Profile, "comp_floor_cad" | "comp_goal_cad" | "max_office_days" | "location_text" | "min_level"
+  Profile, "comp_floor" | "comp_goal" | "currency" | "max_office_days" | "location_text" | "min_level"
 >;
 
 interface Props {
@@ -39,7 +39,7 @@ export function RequirementsDialog({ open, initial, onSave, onClose }: Props) {
   const set = <K extends keyof Requirements>(key: K, value: Requirements[K]) =>
     setReqs({ ...reqs, [key]: value });
 
-  const { comp_floor_cad: floor, comp_goal_cad: goal, max_office_days: office } = reqs;
+  const { comp_floor: floor, comp_goal: goal, currency, max_office_days: office } = reqs;
   const goalError = floor !== null && goal !== null && goal < floor
     ? "Goal sits below your floor. One of the two is wrong." : undefined;
   const officeError = office !== null && (office < 0 || office > 5)
@@ -53,17 +53,25 @@ export function RequirementsDialog({ open, initial, onSave, onClose }: Props) {
       hint="Facts the scorer applies the same way every time, instead of inferring them from your resume. Anything left unset is omitted from the prompt entirely."
     >
       <div className="space-y-4">
+        <Row label="Currency" hint="What your comp figures and the board's salary column are shown in">
+          <select
+            aria-label="Currency" className={`${FIELD} w-40`} value={currency}
+            onChange={(e) => set("currency", e.target.value as Currency)}
+          >
+            {CURRENCY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </Row>
         <div className="grid grid-cols-2 gap-3">
-          <Row label="Comp floor" hint="CAD total, walk-away number">
+          <Row label="Comp floor" hint={`${currency} total, walk-away number`}>
             <input
-              type="number" aria-label="Comp floor (CAD)" className={FIELD} value={floor ?? ""}
-              onChange={(e) => set("comp_floor_cad", toIntOrNull(e.target.value))}
+              type="number" aria-label={`Comp floor (${currency})`} className={FIELD} value={floor ?? ""}
+              onChange={(e) => set("comp_floor", toIntOrNull(e.target.value))}
             />
           </Row>
-          <Row label="Comp goal" hint="CAD total, what you're aiming at" error={goalError}>
+          <Row label="Comp goal" hint={`${currency} total, what you're aiming at`} error={goalError}>
             <input
-              type="number" aria-label="Comp goal (CAD)" className={FIELD} value={goal ?? ""}
-              onChange={(e) => set("comp_goal_cad", toIntOrNull(e.target.value))}
+              type="number" aria-label={`Comp goal (${currency})`} className={FIELD} value={goal ?? ""}
+              onChange={(e) => set("comp_goal", toIntOrNull(e.target.value))}
             />
           </Row>
         </div>

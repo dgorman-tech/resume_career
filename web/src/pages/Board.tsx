@@ -10,7 +10,7 @@ import { StatsBar } from "../components/StatsBar";
 import { TuneControl } from "../components/TuneControl";
 import { useJobs } from "../hooks/useJobs";
 import { useKeyboard } from "../hooks/useKeyboard";
-import { extractFacts, getDimensions, scoreJob } from "../lib/api";
+import { extractFacts, getDimensions, getProfile, scoreJob } from "../lib/api";
 import type { DismissReason } from "../lib/dismiss";
 import { attentionReason, orderByAttention, todayISO } from "../lib/nextAction";
 import { scoreMap } from "../lib/score";
@@ -52,6 +52,11 @@ export default function Board() {
   const [followUpRequested, setFollowUpRequested] = useState(false);
   const [dismissKey, setDismissKey] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+
+  // shares the ["profile"] cache with ProfilePage, so editing currency there
+  // refreshes the board without a second round trip
+  const { data: profile } = useQuery({ queryKey: ["profile"], queryFn: getProfile });
+  const currency = profile?.currency ?? "CAD";
 
   const dimsQuery = useQuery({ queryKey: ["dimensions"], queryFn: getDimensions });
   const [tune, setTune] = useState<DimensionsPayload | null>(null);
@@ -140,7 +145,7 @@ export default function Board() {
   return (
     <div>
       <div className="mb-3">
-        <StatsBar />
+        <StatsBar currency={currency} />
       </div>
       <FilterBar filters={filters} setFilters={setFilters} count={visible.length} searchRef={searchRef}
         tune={<TuneControl tune={tune} setTune={setTune}
@@ -173,6 +178,7 @@ export default function Board() {
           onStatus={onStatus}
           scores={scores}
           today={today}
+          currency={currency}
         />
       )}
       <JobDrawer
@@ -192,6 +198,7 @@ export default function Board() {
         onFollowUpHandled={() => setFollowUpRequested(false)}
         score={selected ? (scores.get(selected.key) ?? null) : null}
         dimensions={activeDims}
+        currency={currency}
       />
       <DismissReasonBar
         open={dismissing != null}

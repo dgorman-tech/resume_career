@@ -32,11 +32,11 @@ def _seed_facts(conn, key="k1", **over):
 
 
 def _seed_profile(conn, **over):
-    p = {"max_office_days": None, "min_level": "", "comp_floor_cad": None, **over}
+    p = {"max_office_days": None, "min_level": "", "comp_floor": None, **over}
     conn.execute(
         """INSERT INTO profile(id, resume_text, rules_text, max_office_days, min_level,
-                               comp_floor_cad) VALUES (1,'R','X',?,?,?)""",
-        (p["max_office_days"], p["min_level"], p["comp_floor_cad"]))
+                               comp_floor) VALUES (1,'R','X',?,?,?)""",
+        (p["max_office_days"], p["min_level"], p["comp_floor"]))
     conn.commit()
 
 
@@ -55,7 +55,7 @@ def test_jobs_expose_extracted_facts_with_evidence(client, tmp_db):
 
 def test_conflicts_are_reported_with_the_quote_behind_them(client, tmp_db):
     _seed_facts(tmp_db)
-    _seed_profile(tmp_db, max_office_days=2, comp_floor_cad=170000)
+    _seed_profile(tmp_db, max_office_days=2, comp_floor=170000)
     k1 = next(j for j in client.get("/api/jobs").json()["data"] if j["key"] == "k1")
     by_field = {c["field"]: c for c in k1["conflicts"]}
     assert set(by_field) == {"office_days", "salary_max_jd"}

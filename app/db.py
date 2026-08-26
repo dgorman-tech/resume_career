@@ -84,8 +84,9 @@ CREATE TABLE IF NOT EXISTS profile (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   resume_text TEXT NOT NULL DEFAULT '',
   rules_text TEXT NOT NULL DEFAULT '',
-  comp_floor_cad INTEGER,
-  comp_goal_cad INTEGER,
+  comp_floor INTEGER,
+  comp_goal INTEGER,
+  currency TEXT NOT NULL DEFAULT 'CAD',
   max_office_days INTEGER,
   location_text TEXT NOT NULL DEFAULT '',
   min_level TEXT NOT NULL DEFAULT '',
@@ -104,8 +105,9 @@ CREATE TABLE IF NOT EXISTS score_dimensions (
 # columns added after the initial release; ensure_schema adds them to existing DBs
 # since CREATE TABLE IF NOT EXISTS is a no-op once the table already exists
 PROFILE_ADDED_COLUMNS = [
-    ("comp_floor_cad", "INTEGER"),
-    ("comp_goal_cad", "INTEGER"),
+    ("comp_floor", "INTEGER"),
+    ("comp_goal", "INTEGER"),
+    ("currency", "TEXT NOT NULL DEFAULT 'CAD'"),
     ("max_office_days", "INTEGER"),
     ("location_text", "TEXT NOT NULL DEFAULT ''"),
     ("min_level", "TEXT NOT NULL DEFAULT ''"),
@@ -126,20 +128,25 @@ JOB_STATE_ADDED_COLUMNS = [
 
 ADDED_COLUMNS = {"profile": PROFILE_ADDED_COLUMNS, "job_state": JOB_STATE_ADDED_COLUMNS}
 
+# Neutral, self-explanatory defaults every fresh install starts with (PRODUCT.md's
+# "guest-proof by default"): no one specific person's role shape or tooling opinions.
+# Users retune these in the Rubric editor once they know what they're optimizing for.
 DEFAULT_DIMENSIONS = [
     ("comp", "Compensation",
      'posted/likely compensation vs the comp criteria (floor and goal) described in CANDIDATE '
      'RULES below. If no range is posted, infer cautiously from title/company/market and say so in "why".'),
-    ("player_coach", "Player-coach",
-     "small team leadership WITH hands-on technical work (SQL/Python/BI). Pure people-management "
-     "or pure IC scores low."),
-    ("cost_center", "Cost-center",
-     "is the data/analytics work the PRODUCT (or a direct revenue driver) at this company, or "
-     "internal overhead? Product = high."),
-    ("flex", "Flexibility",
-     "trust-based flexibility (hybrid <=2 days office, or remote). Rigid full-time RTO = near 0."),
-    ("level", "Level",
-     "seniority and scope appropriate to the candidate's current level, as described in CANDIDATE RULES."),
+    ("level", "Level & scope",
+     "seniority and scope of the role against the level the candidate is targeting, as described "
+     "in CANDIDATE RULES. Meaningfully above or below that level scores low."),
+    ("flex", "Flexibility & work location",
+     "how well the role's work-location policy (remote, hybrid, office days) matches the "
+     "flexibility the candidate describes in CANDIDATE RULES."),
+    ("domain", "Domain & skills fit",
+     "how closely the role's domain, industry, and required skills match the candidate's "
+     "background and the preferences described in CANDIDATE RULES."),
+    ("growth", "Growth & trajectory",
+     "how much the role would grow the candidate's skills, scope, or career trajectory, "
+     "measured against the goals described in CANDIDATE RULES."),
 ]
 
 
@@ -190,8 +197,28 @@ def _add_missing_columns(conn):
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
 
 
+def _backfill_legacy_comp_columns(conn):
+    """One-time, idempotent migration for DBs created before currency was a
+    first-class field: they hold comp_floor_cad/comp_goal_cad instead of
+    comp_floor/comp_goal. Copy the values across; never drop the old columns,
+    so a DB holding months of job data is never at risk of losing anything.
+    Safe to call on every startup: a DB that never had the old columns is a
+    no-op, and a DB already migrated has nothing left to copy (new column is
+    no longer NULL)."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(profile)").fetchall()}
+    if "comp_floor_cad" in cols:
+        conn.execute(
+            "UPDATE profile SET comp_floor = comp_floor_cad "
+            "WHERE comp_floor IS NULL AND comp_floor_cad IS NOT NULL")
+    if "comp_goal_cad" in cols:
+        conn.execute(
+            "UPDATE profile SET comp_goal = comp_goal_cad "
+            "WHERE comp_goal IS NULL AND comp_goal_cad IS NOT NULL")
+
+
 def ensure_schema(conn):
     conn.executescript(SCHEMA)
     _add_missing_columns(conn)
+    _backfill_legacy_comp_columns(conn)
     _seed_dimensions(conn)
     conn.commit()

@@ -26,7 +26,7 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNextAction, onScoreNow, onExtractFacts, extractingFacts, deepDiveRequested, onDeepDiveHandled, followUpRequested, onFollowUpHandled, score, dimensions }: {
+export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNextAction, onScoreNow, onExtractFacts, extractingFacts, deepDiveRequested, onDeepDiveHandled, followUpRequested, onFollowUpHandled, score, dimensions, currency = "CAD" }: {
   job: Job | null;
   open: boolean;
   onClose: () => void;
@@ -43,6 +43,9 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
   onFollowUpHandled: () => void;
   score: number | null;
   dimensions: Dimension[];
+  /** the profile's configured currency, used only as a fallback label — see
+   *  the salary line below for why job.salary_raw is preferred when present */
+  currency?: string;
 }) {
   // The global `transition: none` reduced-motion rule in index.css cannot reach a
   // framer-motion inline transform, so the slide has to opt out in JS. The drawer
@@ -164,7 +167,14 @@ export function JobDrawer({ job, open, onClose, onStatus, onStar, onNote, onNext
                         <span className="font-semibold text-ink">{job.company}</span>
                         <Badges job={job} />
                         <span>{job.location}</span>
-                        <span className="font-mono text-ink">{fmtSalary(job.salary_min, job.salary_max)}</span>
+                        {/* salary_raw is the verbatim posting text and carries its own currency
+                            symbol, so it's the honest figure whenever the source captured it;
+                            job.salary_min/max is genuinely a currency-less number pair, and
+                            labelling it with the profile's configured currency is only an
+                            approximation (correct for a single-country watchlist, not in general) */}
+                        <span className="font-mono text-ink">
+                          {job.salary_raw || fmtSalary(job.salary_min, job.salary_max, currency)}
+                        </span>
                         <a href={job.url} target="_blank" rel="noopener noreferrer"
                            className="inline-flex items-center gap-1 text-teal hover:underline">
                           posting <ExternalLink className="size-3" aria-hidden="true" />

@@ -92,7 +92,8 @@ def test_patch_invalid_status_400(client):
 def test_profile_roundtrip_sets_updated_at(client):
     empty = client.get("/api/profile").json()["data"]
     assert empty["resume_text"] == "" and empty["updated_at"] is None
-    assert empty["comp_floor_cad"] is None and empty["min_level"] == ""
+    assert empty["comp_floor"] is None and empty["min_level"] == ""
+    assert empty["currency"] == "CAD"
     r = client.put("/api/profile", json={"resume_text": "R", "rules_text": "X"})
     assert r.json()["data"]["updated_at"] is not None
     again = client.get("/api/profile").json()["data"]
@@ -101,15 +102,31 @@ def test_profile_roundtrip_sets_updated_at(client):
 
 def test_profile_roundtrip_persists_structured_fields(client):
     r = client.put("/api/profile", json={
-        "resume_text": "R", "rules_text": "X", "comp_floor_cad": 170000,
-        "comp_goal_cad": 200000, "max_office_days": 2,
+        "resume_text": "R", "rules_text": "X", "comp_floor": 170000,
+        "comp_goal": 200000, "currency": "EUR", "max_office_days": 2,
         "location_text": "Toronto", "min_level": "senior_manager",
     })
     assert r.status_code == 200
     again = client.get("/api/profile").json()["data"]
-    assert again["comp_floor_cad"] == 170000 and again["comp_goal_cad"] == 200000
+    assert again["comp_floor"] == 170000 and again["comp_goal"] == 200000
+    assert again["currency"] == "EUR"
     assert again["max_office_days"] == 2 and again["location_text"] == "Toronto"
     assert again["min_level"] == "senior_manager"
+
+
+def test_profile_defaults_currency_to_cad_when_unset(client):
+    r = client.put("/api/profile", json={"resume_text": "R", "rules_text": "X"})
+    assert r.json()["data"]["currency"] == "CAD"
+
+
+def test_profile_rejects_an_invalid_currency(client):
+    r = client.put("/api/profile", json={"resume_text": "R", "rules_text": "X", "currency": "nope"})
+    assert r.status_code == 400
+
+
+def test_profile_normalizes_currency_case(client):
+    r = client.put("/api/profile", json={"resume_text": "R", "rules_text": "X", "currency": "eur"})
+    assert r.json()["data"]["currency"] == "EUR"
 
 
 def test_profile_rejects_invalid_min_level(client):

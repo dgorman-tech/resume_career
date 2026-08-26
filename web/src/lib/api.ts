@@ -1,5 +1,5 @@
-import type { Company, DimensionEdit, DimensionsPayload, Health, Job, JobFacts, MinLevel, Profile,
-              Settings, Stats, Status, TestCompanyResult } from "./types";
+import type { Company, Currency, DimensionEdit, DimensionsPayload, Health, Job, JobFacts, MinLevel,
+              Profile, Settings, Stats, Status, TestCompanyResult } from "./types";
 
 interface Envelope<T> {
   ok: boolean;
@@ -23,7 +23,7 @@ export const getHealth = () => call<Health>("/api/health");
 export const getProfile = () => call<Profile>("/api/profile");
 export const putProfile = (p: {
   resume_text: string; rules_text: string;
-  comp_floor_cad: number | null; comp_goal_cad: number | null;
+  comp_floor: number | null; comp_goal: number | null; currency: Currency;
   max_office_days: number | null; location_text: string; min_level: MinLevel;
 }) => call<Profile>("/api/profile", { method: "PUT", body: JSON.stringify(p) });
 export const patchJob = (

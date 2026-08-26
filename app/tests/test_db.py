@@ -42,10 +42,14 @@ def test_now_iso_format():
 def test_score_dimensions_seeded(tmp_db):
     from app import db as appdb
     dims = appdb.load_dimensions(tmp_db)
-    assert [d["key"] for d in dims] == ["comp", "player_coach", "cost_center", "flex", "level"]
+    assert [d["key"] for d in dims] == ["comp", "level", "flex", "domain", "growth"]
     assert all(d["weight"] == 10 and d["archived"] == 0 for d in dims)
     assert dims[0]["label"] == "Compensation"
     assert "CANDIDATE RULES" in dims[0]["description"]
+    # neutral defaults: no dimension names a specific tool, role shape, or person's taste
+    for d in dims:
+        assert "player" not in d["description"].lower()
+        assert "cost-center" not in d["description"].lower() and "cost center" not in d["description"].lower()
 
 
 def test_seed_runs_once_and_migration_is_idempotent(tmp_db):
@@ -63,6 +67,89 @@ def test_profile_columns_added_with_defaults(tmp_db):
     tmp_db.commit()
     row = tmp_db.execute("SELECT holistic_weight, rubric_updated_at FROM profile WHERE id=1").fetchone()
     assert row["holistic_weight"] == 50 and row["rubric_updated_at"] is None
+
+
+def test_legacy_comp_cad_columns_migrate_to_currency_aware_ones(tmp_path):
+    """Guards the owner's live DB: months of comp_floor_cad/comp_goal_cad data must
+    survive the move to currency-aware comp_floor/comp_goal, exactly once, without
+    ever dropping the old columns."""
+    from app import db as appdb
+    conn = appdb.get_conn(tmp_path / "legacy.db")
+    # the OLD profile schema, predating comp_floor/comp_goal/currency
+    conn.execute("""CREATE TABLE profile (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        resume_text TEXT NOT NULL DEFAULT '',
+        rules_text TEXT NOT NULL DEFAULT '',
+        comp_floor_cad INTEGER,
+        comp_goal_cad INTEGER,
+        max_office_days INTEGER,
+        location_text TEXT NOT NULL DEFAULT '',
+        min_level TEXT NOT NULL DEFAULT '',
+        updated_at TEXT)""")
+    conn.execute(
+        "INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad) "
+        "VALUES (1, 'RESUME', 'RULES', 170000, 200000)")
+    conn.commit()
+
+    appdb.ensure_schema(conn)
+
+    row = conn.execute(
+        "SELECT comp_floor, comp_goal, currency, comp_floor_cad, comp_goal_cad "
+        "FROM profile WHERE id=1").fetchone()
+    assert row["comp_floor"] == 170000 and row["comp_goal"] == 200000
+    assert row["currency"] == "CAD"
+    # the old columns are never dropped, so nothing already relying on them breaks
+    assert row["comp_floor_cad"] == 170000 and row["comp_goal_cad"] == 200000
+
+    # idempotent: a second (and third) launch must not clobber or re-derive anything
+    appdb.ensure_schema(conn)
+    appdb.ensure_schema(conn)
+    row_again = conn.execute(
+        "SELECT comp_floor, comp_goal, currency FROM profile WHERE id=1").fetchone()
+    assert row_again["comp_floor"] == 170000 and row_again["comp_goal"] == 200000
+    assert row_again["currency"] == "CAD"
+    conn.close()
+
+
+def test_legacy_migration_does_not_overwrite_a_value_already_set_on_the_new_column(tmp_path):
+    """If the new column was already populated (e.g. the user changed it after an
+    earlier partial migration), the backfill must not stomp it with the stale
+    legacy value."""
+    from app import db as appdb
+    conn = appdb.get_conn(tmp_path / "legacy2.db")
+    conn.execute("""CREATE TABLE profile (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        resume_text TEXT NOT NULL DEFAULT '',
+        rules_text TEXT NOT NULL DEFAULT '',
+        comp_floor_cad INTEGER,
+        comp_goal_cad INTEGER,
+        comp_floor INTEGER,
+        comp_goal INTEGER,
+        updated_at TEXT)""")
+    conn.execute(
+        "INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad, comp_floor) "
+        "VALUES (1, 'RESUME', 'RULES', 170000, 200000, 999999)")
+    conn.commit()
+
+    appdb.ensure_schema(conn)
+
+    row = conn.execute("SELECT comp_floor, comp_goal FROM profile WHERE id=1").fetchone()
+    assert row["comp_floor"] == 999999          # untouched: it already had a value
+    assert row["comp_goal"] == 200000           # backfilled: it was NULL
+    conn.close()
+
+
+def test_a_db_that_never_had_the_legacy_columns_is_unaffected_by_the_backfill(tmp_db):
+    """Safety net for the common case: a fresh DB (or the fixture DB every other
+    test in this suite uses) never had comp_floor_cad/comp_goal_cad, so the
+    migration guard must be a true no-op there."""
+    tmp_db.execute("INSERT INTO profile(id, resume_text, rules_text, comp_floor, comp_goal) "
+                   "VALUES (1, 'r', 'x', 170000, 200000)")
+    tmp_db.commit()
+    from app import db as appdb
+    appdb.ensure_schema(tmp_db)  # must not raise (no comp_floor_cad column exists) and not change anything
+    row = tmp_db.execute("SELECT comp_floor, comp_goal, currency FROM profile WHERE id=1").fetchone()
+    assert row["comp_floor"] == 170000 and row["comp_goal"] == 200000 and row["currency"] == "CAD"
 
 
 def test_next_action_columns_are_added_to_a_pre_existing_job_state(tmp_path):
@@ -158,7 +245,7 @@ def test_load_dimensions_filters_and_orders(tmp_db):
     tmp_db.execute("UPDATE score_dimensions SET position=99 WHERE key='comp'")
     tmp_db.commit()
     active = appdb.load_dimensions(tmp_db)
-    assert [d["key"] for d in active] == ["player_coach", "cost_center", "level", "comp"]
+    assert [d["key"] for d in active] == ["level", "domain", "growth", "comp"]
     assert len(appdb.load_dimensions(tmp_db, include_archived=True)) == 5
 
 

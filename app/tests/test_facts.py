@@ -150,7 +150,7 @@ def test_facts_not_a_list_raises():
 # ----------------------------------------------------------------- conflicts
 
 def profile(**over):
-    base = {"max_office_days": None, "min_level": "", "comp_floor_cad": None}
+    base = {"max_office_days": None, "min_level": "", "comp_floor": None}
     return {**base, **over}
 
 
@@ -190,25 +190,25 @@ def test_accepts_a_level_above_your_floor():
 
 def test_flags_a_range_whose_ceiling_is_under_your_floor():
     f = facts_row(salary_max_jd=150000, evidence={"salary_max_jd": "$130,000 - $150,000"})
-    [c] = facts.find_conflicts(f, profile(comp_floor_cad=170000))
+    [c] = facts.find_conflicts(f, profile(comp_floor=170000))
     assert c["field"] == "salary_max_jd" and "150" in c["message"]
 
 
 def test_accepts_a_range_that_reaches_your_floor():
     f = facts_row(salary_max_jd=180000)
-    assert facts.find_conflicts(f, profile(comp_floor_cad=170000)) == []
+    assert facts.find_conflicts(f, profile(comp_floor=170000)) == []
 
 
 def test_reports_every_conflict_not_just_the_first():
     f = facts_row(office_days=5, level="ic", salary_max_jd=90000)
     found = facts.find_conflicts(f, profile(max_office_days=2, min_level="senior_manager",
-                                            comp_floor_cad=170000))
+                                            comp_floor=170000))
     assert {c["field"] for c in found} == {"office_days", "level", "salary_max_jd"}
 
 
 def test_a_fact_that_was_never_extracted_cannot_conflict():
     assert facts.find_conflicts(facts_row(), profile(max_office_days=0, min_level="vp_plus",
-                                                    comp_floor_cad=500000)) == []
+                                                    comp_floor=500000)) == []
 
 
 def test_row_to_facts_parses_the_json_columns():

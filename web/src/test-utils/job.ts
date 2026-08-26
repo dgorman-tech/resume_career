@@ -5,7 +5,7 @@ import type { Job, JobFacts } from "../lib/types";
 export function makeJob(over: Partial<Job> = {}): Job {
   return {
     key: "k", company: "c", tier: 1, title: "t", location: "l", url: "u",
-    salary_min: null, salary_max: null, posted_at: "", first_seen: "", source: "s",
+    salary_min: null, salary_max: null, salary_raw: null, posted_at: "", first_seen: "", source: "s",
     closed_at: null, is_internal: false, is_new: false,
     status: "new", starred: false, note: "",
     next_action_at: null, next_action_note: "", dismiss_reason: null,

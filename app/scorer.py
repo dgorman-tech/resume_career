@@ -14,7 +14,10 @@ class ScorerError(Exception):
 
 # Bump whenever build_batch_prompt changes shape, so a stored score can be told
 # apart from one the current prompt would produce.
-PROMPT_VERSION = "batch/1"
+# batch/2: comp floor/goal are labelled with the profile's configured currency
+# instead of a hardcoded CAD, and posted salary prefers the posting's verbatim
+# salary_raw (or drops the currency label entirely) instead of mislabelling it.
+PROMPT_VERSION = "batch/2"
 
 
 def input_hash(text):
@@ -86,10 +89,11 @@ _LEVEL_LABELS = {
 def format_structured_facts(profile):
     """Render the profile's structured (non-free-text) fields as labeled facts for the prompt."""
     lines = []
-    floor, goal = profile["comp_floor_cad"], profile["comp_goal_cad"]
+    floor, goal = profile["comp_floor"], profile["comp_goal"]
+    currency = profile["currency"] or "CAD"
     if floor or goal:
-        lines.append(f"Comp: floor ${floor:,} CAD, goal ${goal:,} CAD" if floor and goal
-                      else f"Comp floor: ${floor:,} CAD" if floor else f"Comp goal: ${goal:,} CAD")
+        lines.append(f"Comp: floor ${floor:,} {currency}, goal ${goal:,} {currency}" if floor and goal
+                      else f"Comp floor: ${floor:,} {currency}" if floor else f"Comp goal: ${goal:,} {currency}")
     if profile["max_office_days"] is not None:
         lines.append(f"Max office days/week: {profile['max_office_days']}")
     if profile["location_text"]:
@@ -101,9 +105,16 @@ def format_structured_facts(profile):
 
 def build_batch_prompt(profile, job, jd_text, lens, dimensions):
     rubric = build_rubric(dimensions, lens)
+    # The posting's currency is the ATS's, not the candidate's configured currency,
+    # so it must never borrow the candidate's currency label. salary_raw is the
+    # verbatim string from the posting (e.g. "€70,000 - €90,000") and is preferred
+    # whenever it's available; otherwise the bare numbers go in with no currency
+    # label at all rather than a currency that might be wrong.
     salary = ""
-    if job.get("salary_min") or job.get("salary_max"):
-        salary = f"Posted salary: {job.get('salary_min')} - {job.get('salary_max')} CAD\n"
+    if job.get("salary_raw"):
+        salary = f"Posted salary: {job['salary_raw']}\n"
+    elif job.get("salary_min") or job.get("salary_max"):
+        salary = f"Posted salary: {job.get('salary_min')} - {job.get('salary_max')}\n"
     return (
         f"{rubric}\n\n## CANDIDATE FACTS\n{format_structured_facts(profile)}\n\n"
         f"## CANDIDATE RULES\n{profile['rules_text']}\n\n"

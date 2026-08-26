@@ -47,8 +47,9 @@ class JobStatePatch(BaseModel):
 class ProfileBody(BaseModel):
     resume_text: str
     rules_text: str
-    comp_floor_cad: Optional[int] = None
-    comp_goal_cad: Optional[int] = None
+    comp_floor: Optional[int] = None
+    comp_goal: Optional[int] = None
+    currency: str = "CAD"
     max_office_days: Optional[int] = None
     location_text: str = ""
     min_level: str = ""
@@ -105,6 +106,9 @@ def _row_to_job(row, internal, stale_after, job_facts=None, profile=None):
         "key": d["key"], "company": d["company"], "tier": d["tier"], "title": d["title"],
         "location": d["location"], "url": d["url"],
         "salary_min": d["salary_min"], "salary_max": d["salary_max"],
+        # the verbatim string from the posting, carrying its own currency symbol
+        # where the source states one; empty/absent for adapters that don't capture it
+        "salary_raw": d.get("salary_raw") or None,
         "posted_at": d["posted_at"], "first_seen": d["first_seen"], "source": d["source"],
         "closed_at": d.get("closed_at"),
         "is_internal": (d["company"] or "").lower() in internal,
@@ -222,7 +226,7 @@ def create_app(db_path=None, cfg=None, config_path=None):
             stale_after = _stale_cutoff(conn)
             by_key = _facts_by_key(conn)
             prof = conn.execute(
-                "SELECT max_office_days, min_level, comp_floor_cad FROM profile WHERE id=1").fetchone()
+                "SELECT max_office_days, min_level, comp_floor FROM profile WHERE id=1").fetchone()
             profile = dict(prof) if prof else None
             rows = conn.execute(JOBS_SQL).fetchall()
             return ok([_row_to_job(r, internal, stale_after, by_key.get(r["key"]), profile)
@@ -328,11 +332,12 @@ def create_app(db_path=None, cfg=None, config_path=None):
         conn = get_conn()
         try:
             row = conn.execute(
-                """SELECT resume_text, rules_text, comp_floor_cad, comp_goal_cad, max_office_days,
+                """SELECT resume_text, rules_text, comp_floor, comp_goal, currency, max_office_days,
                           location_text, min_level, updated_at FROM profile WHERE id=1""").fetchone()
             return ok(dict(row) if row else {
-                "resume_text": "", "rules_text": "", "comp_floor_cad": None, "comp_goal_cad": None,
-                "max_office_days": None, "location_text": "", "min_level": "", "updated_at": None})
+                "resume_text": "", "rules_text": "", "comp_floor": None, "comp_goal": None,
+                "currency": "CAD", "max_office_days": None, "location_text": "", "min_level": "",
+                "updated_at": None})
         finally:
             conn.close()
 
@@ -342,23 +347,28 @@ def create_app(db_path=None, cfg=None, config_path=None):
             return err(f"invalid min_level {body.min_level!r}", 400)
         if body.max_office_days is not None and not (0 <= body.max_office_days <= 5):
             return err("max_office_days must be between 0 and 5", 400)
+        currency = (body.currency or "CAD").strip().upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            return err(f"invalid currency {body.currency!r}", 400)
         conn = get_conn()
         try:
             ts = appdb.now_iso()
             conn.execute(
-                """INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad,
+                """INSERT INTO profile(id, resume_text, rules_text, comp_floor, comp_goal, currency,
                                         max_office_days, location_text, min_level, updated_at)
-                   VALUES (1,?,?,?,?,?,?,?,?)
+                   VALUES (1,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(id) DO UPDATE SET resume_text=excluded.resume_text,
-                     rules_text=excluded.rules_text, comp_floor_cad=excluded.comp_floor_cad,
-                     comp_goal_cad=excluded.comp_goal_cad, max_office_days=excluded.max_office_days,
+                     rules_text=excluded.rules_text, comp_floor=excluded.comp_floor,
+                     comp_goal=excluded.comp_goal, currency=excluded.currency,
+                     max_office_days=excluded.max_office_days,
                      location_text=excluded.location_text, min_level=excluded.min_level,
                      updated_at=excluded.updated_at""",
-                (body.resume_text, body.rules_text, body.comp_floor_cad, body.comp_goal_cad,
+                (body.resume_text, body.rules_text, body.comp_floor, body.comp_goal, currency,
                  body.max_office_days, body.location_text, body.min_level, ts))
             conn.commit()
             return ok({"resume_text": body.resume_text, "rules_text": body.rules_text,
-                       "comp_floor_cad": body.comp_floor_cad, "comp_goal_cad": body.comp_goal_cad,
+                       "comp_floor": body.comp_floor, "comp_goal": body.comp_goal,
+                       "currency": currency,
                        "max_office_days": body.max_office_days, "location_text": body.location_text,
                        "min_level": body.min_level, "updated_at": ts})
         finally:

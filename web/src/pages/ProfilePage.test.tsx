@@ -20,7 +20,7 @@ vi.mock("sonner", () => ({
 }));
 
 const profile = (over: Partial<Profile> = {}): Profile => ({
-  resume_text: "old", rules_text: "", comp_floor_cad: null, comp_goal_cad: null,
+  resume_text: "old", rules_text: "", comp_floor: null, comp_goal: null, currency: "CAD",
   max_office_days: null, location_text: "", min_level: "", updated_at: null, ...over,
 });
 
@@ -43,11 +43,11 @@ afterEach(() => vi.clearAllMocks());
 describe("ProfilePage read view", () => {
   it("summarises hard requirements and marks unset ones instead of hiding them", async () => {
     vi.mocked(api.getProfile).mockResolvedValue(profile({
-      comp_floor_cad: 180000, location_text: "Toronto", min_level: "senior_manager",
+      comp_floor: 180000, location_text: "Toronto", min_level: "senior_manager",
     }));
     renderPage();
 
-    expect(await screen.findByText("$180K")).toBeInTheDocument();
+    expect(await screen.findByText("CA$180K")).toBeInTheDocument();
     expect(screen.getByText("Toronto")).toBeInTheDocument();
     expect(screen.getByText("Senior Manager")).toBeInTheDocument();
     // comp goal and office days are unset, and say so rather than rendering blank
@@ -130,7 +130,7 @@ describe("ProfilePage resume upload", () => {
   });
 
   it("saves the edited resume without touching the other profile fields", async () => {
-    vi.mocked(api.getProfile).mockResolvedValue(profile({ rules_text: "keep me", comp_floor_cad: 180000 }));
+    vi.mocked(api.getProfile).mockResolvedValue(profile({ rules_text: "keep me", comp_floor: 180000 }));
     renderPage();
     await openEditor(/^edit resume$/i);
     fireEvent.change(await screen.findByRole("textbox", { name: "Resume" }),
@@ -139,13 +139,13 @@ describe("ProfilePage resume upload", () => {
 
     await waitFor(() => expect(api.putProfile).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.putProfile).mock.calls[0][0]).toEqual(
-      expect.objectContaining({ resume_text: "new resume", rules_text: "keep me", comp_floor_cad: 180000 }));
+      expect.objectContaining({ resume_text: "new resume", rules_text: "keep me", comp_floor: 180000 }));
   });
 });
 
 describe("ProfilePage hard requirements", () => {
   it("blocks a save when the comp goal sits below the floor", async () => {
-    vi.mocked(api.getProfile).mockResolvedValue(profile({ comp_floor_cad: 180000, comp_goal_cad: 220000 }));
+    vi.mocked(api.getProfile).mockResolvedValue(profile({ comp_floor: 180000, comp_goal: 220000 }));
     renderPage();
     await openEditor(/^edit hard requirements$/i);
 
@@ -154,5 +154,27 @@ describe("ProfilePage hard requirements", () => {
 
     expect(screen.getByText(/below your floor/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /save requirements/i })).toBeDisabled();
+  });
+
+  it("labels the comp fields with the profile's configured currency", async () => {
+    vi.mocked(api.getProfile).mockResolvedValue(profile({ currency: "EUR" }));
+    renderPage();
+    await openEditor(/^edit hard requirements$/i);
+
+    expect(await screen.findByLabelText("Comp floor (EUR)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Comp goal (EUR)")).toBeInTheDocument();
+  });
+
+  it("saves the selected currency alongside the comp fields", async () => {
+    vi.mocked(api.getProfile).mockResolvedValue(profile());
+    renderPage();
+    await openEditor(/^edit hard requirements$/i);
+
+    fireEvent.change(await screen.findByLabelText("Currency"), { target: { value: "GBP" } });
+    fireEvent.click(screen.getByRole("button", { name: /save requirements/i }));
+
+    await waitFor(() => expect(api.putProfile).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.putProfile).mock.calls[0][0]).toEqual(
+      expect.objectContaining({ currency: "GBP" }));
   });
 });

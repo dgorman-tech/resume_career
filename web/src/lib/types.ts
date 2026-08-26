@@ -61,6 +61,9 @@ export interface Job {
   url: string;
   salary_min: number | null;
   salary_max: number | null;
+  /** Verbatim string from the posting (carries its own currency symbol where the
+   *  source states one); null for adapters that don't capture it. */
+  salary_raw: string | null;
   posted_at: string;
   first_seen: string;
   source: string;
@@ -99,11 +102,17 @@ export interface Stats {
 
 export type MinLevel = "" | "ic" | "manager" | "senior_manager" | "director" | "vp_plus";
 
+/** Currencies the comp fields and salary displays understand a symbol for; the
+ *  backend accepts any 3-letter code, so treat this as "the ones with a picker
+ *  option and a nice symbol", not an exhaustive validation set. */
+export type Currency = "CAD" | "USD" | "EUR" | "GBP" | "AUD" | "NZD" | "CHF" | "SEK" | "INR" | "SGD";
+
 export interface Profile {
   resume_text: string;
   rules_text: string;
-  comp_floor_cad: number | null;
-  comp_goal_cad: number | null;
+  comp_floor: number | null;
+  comp_goal: number | null;
+  currency: Currency;
   max_office_days: number | null;
   location_text: string;
   min_level: MinLevel;

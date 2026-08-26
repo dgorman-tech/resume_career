@@ -10,20 +10,20 @@ CFG = {"app": {"internal_companies": ["ExampleBank"], "batch_model": "test-flash
        "companies": []}
 
 GOOD = json.dumps({"fit": 92,
-                   "subscores": {"comp": 95, "player_coach": 92, "cost_center": 90,
-                                 "flex": 85, "level": 88},
+                   "subscores": {"comp": 95, "level": 92, "flex": 85,
+                                 "domain": 90, "growth": 88},
                    "why": "Strong match.", "gaps": "No dbt.", "angle": "Lead with rigor."})
 
 
 def _seed_profile(conn, rules_text="RULES TEXT", **structured):
-    fields = {"comp_floor_cad": None, "comp_goal_cad": None, "max_office_days": None,
+    fields = {"comp_floor": None, "comp_goal": None, "currency": "CAD", "max_office_days": None,
               "location_text": "", "min_level": "", **structured}
     conn.execute(
-        """INSERT INTO profile(id, resume_text, rules_text, comp_floor_cad, comp_goal_cad,
+        """INSERT INTO profile(id, resume_text, rules_text, comp_floor, comp_goal, currency,
                                 max_office_days, location_text, min_level, updated_at)
-           VALUES (1, 'RESUME TEXT', ?, ?, ?, ?, ?, ?, '2026-08-24T00:00:00Z')""",
-        (rules_text, fields["comp_floor_cad"], fields["comp_goal_cad"], fields["max_office_days"],
-         fields["location_text"], fields["min_level"]))
+           VALUES (1, 'RESUME TEXT', ?, ?, ?, ?, ?, ?, ?, '2026-08-24T00:00:00Z')""",
+        (rules_text, fields["comp_floor"], fields["comp_goal"], fields["currency"],
+         fields["max_office_days"], fields["location_text"], fields["min_level"]))
     conn.commit()
 
 
@@ -42,7 +42,7 @@ def test_prompt_contains_profile_job_and_generated_rubric(tmp_db):
     dims = appdb.load_dimensions(tmp_db)
     p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
     for needle in ("RESUME TEXT", "RULES TEXT", "170", "Manager, Analytics Engineering",
-                   "Wealthsimple", "JD BODY", "- comp:", "- player_coach:", "- level:"):
+                   "Wealthsimple", "JD BODY", "- comp:", "- domain:", "- level:"):
         assert needle in p
     assert "170" not in scorer.build_rubric(dims, "external")
     assert "170" not in scorer.build_rubric(dims, "internal")
@@ -82,15 +82,40 @@ def test_validate_dynamic_keys_and_drops_extras():
 
 
 def test_structured_facts_included_in_prompt(tmp_db):
-    _seed_profile(tmp_db, comp_floor_cad=170000, comp_goal_cad=200000,
+    _seed_profile(tmp_db, comp_floor=170000, comp_goal=200000,
                   max_office_days=2, location_text="Toronto or Canada-remote",
                   min_level="senior_manager")
     job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
     dims = appdb.load_dimensions(tmp_db)
     p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
-    for needle in ("170,000", "200,000", "Max office days/week: 2",
+    for needle in ("170,000", "200,000", "CAD", "Max office days/week: 2",
                    "Toronto or Canada-remote", "Senior Manager"):
         assert needle in p
+
+
+def test_structured_facts_use_the_profiles_configured_currency(tmp_db):
+    _seed_profile(tmp_db, comp_floor=70000, comp_goal=90000, currency="EUR")
+    p = scorer.format_structured_facts(scorer.load_profile(tmp_db))
+    assert "70,000 EUR" in p and "90,000 EUR" in p and "CAD" not in p
+
+
+def test_posted_salary_prefers_the_verbatim_raw_string(tmp_db):
+    _seed_profile(tmp_db)
+    job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
+    job["salary_raw"] = "€70,000 - €90,000"
+    dims = appdb.load_dimensions(tmp_db)
+    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
+    assert "€70,000 - €90,000" in p
+
+
+def test_posted_salary_omits_currency_when_the_raw_string_is_unavailable(tmp_db):
+    _seed_profile(tmp_db)
+    job = dict(tmp_db.execute("SELECT * FROM jobs WHERE key='k1'").fetchone())
+    job["salary_raw"] = None
+    dims = appdb.load_dimensions(tmp_db)
+    p = scorer.build_batch_prompt(scorer.load_profile(tmp_db), job, "JD BODY", "external", dims)
+    assert f"Posted salary: {job['salary_min']} - {job['salary_max']}\n" in p
+    assert "CAD" not in p
 
 
 def test_structured_facts_absent_when_unset(tmp_db):

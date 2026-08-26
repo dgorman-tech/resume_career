@@ -225,7 +225,7 @@ def find_conflicts(f, profile):
         add("level", f"posted at {level.replace('_', ' ')}, "
                      f"below your {floor_level.replace('_', ' ')} floor")
 
-    floor, top = profile.get("comp_floor_cad"), f.get("salary_max_jd")
+    floor, top = profile.get("comp_floor"), f.get("salary_max_jd")
     if floor and top is not None and top < floor:
         add("salary_max_jd", f"tops out at ${top:,.0f} vs your ${floor:,.0f} floor")
 

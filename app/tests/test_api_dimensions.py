@@ -27,7 +27,7 @@ def _rubric_ts(tmp_db):
 
 def test_get_returns_seed_and_default_holistic(client):
     data = _get(client)
-    assert [d["key"] for d in data["dimensions"]] == ["comp", "player_coach", "cost_center", "flex", "level"]
+    assert [d["key"] for d in data["dimensions"]] == ["comp", "level", "flex", "domain", "growth"]
     assert data["dimensions"][0]["archived"] is False
     assert data["holistic_weight"] == 50
 
@@ -45,7 +45,7 @@ def test_reorder_only_does_not_bump(client, tmp_db):
         d["position"] = len(dims) - i
     assert _put(client, dims).json()["ok"] is True
     assert _rubric_ts(tmp_db) is None
-    assert [d["key"] for d in _get(client)["dimensions"]][0] == "level"
+    assert [d["key"] for d in _get(client)["dimensions"]][0] == "growth"
 
 
 def test_add_archive_restore_bump_and_slugify(client, tmp_db):
@@ -125,7 +125,7 @@ def test_weights_validation(client, tmp_db):
     tmp_db.commit()
     assert _put_weights(client, {"weights": {"flex": 10}}).status_code == 400
     # all-zero result rejected
-    zeros = {"weights": {k: 0 for k in ("comp", "player_coach", "cost_center", "level")},
+    zeros = {"weights": {k: 0 for k in ("comp", "domain", "growth", "level")},
              "holistic_weight": 0}
     assert _put_weights(client, zeros).status_code == 400
 

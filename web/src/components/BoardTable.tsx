@@ -37,16 +37,24 @@ export function sortJobs(jobs: Job[], sort: Sort, scores: Map<string, number | n
 }
 
 /** The range to show, and whether it came from the description rather than the
- *  board feed. A JD-sourced number is always labelled as such. */
-export function salaryForDisplay(job: Job): { text: string; fromJd: boolean } {
+ *  board feed. A JD-sourced number is always labelled as such.
+ *
+ *  `currency` is the profile's configured currency, not the posting's — a
+ *  posting's actual currency is genuinely unknown to us (the watcher stores
+ *  numbers, not a currency code), so this is an approximation that only holds
+ *  up for a single-country watchlist. `salary_raw`, when the source captured
+ *  it, carries its own currency symbol and is the more honest figure, but the
+ *  fixed-width board column stays on the compact "$XXXK" form for scanability;
+ *  the raw string is surfaced in the drawer instead, where there's room for it. */
+export function salaryForDisplay(job: Job, currency = "CAD"): { text: string; fromJd: boolean } {
   if (job.salary_min != null || job.salary_max != null) {
-    return { text: fmtSalary(job.salary_min, job.salary_max), fromJd: false };
+    return { text: fmtSalary(job.salary_min, job.salary_max, currency), fromJd: false };
   }
   const f = job.facts;
   if (f && (f.salary_min_jd != null || f.salary_max_jd != null)) {
-    return { text: fmtSalary(f.salary_min_jd, f.salary_max_jd), fromJd: true };
+    return { text: fmtSalary(f.salary_min_jd, f.salary_max_jd, currency), fromJd: true };
   }
-  return { text: fmtSalary(null, null), fromJd: false };
+  return { text: fmtSalary(null, null, currency), fromJd: false };
 }
 
 export interface Col {
@@ -89,7 +97,7 @@ function AttentionChip({ job, today }: { job: Job; today: string }) {
 }
 
 export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatus, scores,
-                             today = todayISO() }: {
+                             today = todayISO(), currency = "CAD" }: {
   jobs: Job[];
   selectedKey: string | null;
   onSelect: (key: string) => void;
@@ -98,6 +106,8 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
   onStatus: (key: string, status: Status) => void;
   scores: Map<string, number | null>;
   today?: string;
+  /** the profile's configured currency; see the trade-off note on salaryForDisplay */
+  currency?: string;
 }) {
   const { attention, rest } = partitionAttention(jobs, today);
   const header = ({ key: col, label, w, hideNarrow }: Col) => {
@@ -155,7 +165,7 @@ export function BoardTable({ jobs, selectedKey, onSelect, sort, setSort, onStatu
       <td className={clsx("truncate px-2 text-ink-muted", NARROW_HIDDEN)}>{j.location}</td>
       <td className={clsx("px-2 font-mono text-xs text-ink", NARROW_HIDDEN)}>
         {(() => {
-          const { text, fromJd } = salaryForDisplay(j);
+          const { text, fromJd } = salaryForDisplay(j, currency);
           return fromJd ? (
             <span title="Range from the job description, not the job board"
               className="border-b border-dotted border-ink-muted">
